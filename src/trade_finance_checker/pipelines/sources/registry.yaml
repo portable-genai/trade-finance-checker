@@ -1,0 +1,33 @@
+# UCP600 rule-source registry for the B4 Trade-Finance Document Checker.
+#
+# B4 does NOT vendor the UCP600 text into the repo. The governed rule set lives in the
+# central A2 Enterprise Knowledge Base (File Search over the UCP600 articles), and is
+# retrieved at runtime through RulesRetrievalPort (R3). This registry records the article
+# references the checker maps discrepancies to, so the A2 collection can be seeded and
+# kept aligned with the deterministic detector. References are illustrative.
+
+collection: ucp600-rules
+publication: UCP600
+publication_title: Uniform Customs and Practice for Documentary Credits, 2007 revision
+articles:
+  - article: "UCP600 Art. 6"
+    title: Availability, expiry date and place for presentation
+    topics: [expiry, presentation]
+  - article: "UCP600 Art. 14"
+    title: Standard for examination of documents
+    topics: [examination, dates, data-consistency]
+  - article: "UCP600 Art. 18"
+    title: Commercial invoice
+    topics: [amount, currency, goods-description]
+  - article: "UCP600 Art. 19"
+    title: Transport document covering at least two modes of transport
+    topics: [shipment-date, transport]
+  - article: "UCP600 Art. 20"
+    title: Bill of lading
+    topics: [shipment-date, on-board]
+  - article: "UCP600 Art. 28"
+    title: Insurance document and coverage
+    topics: [insurance, coverage]
+  - article: "UCP600 Art. 30"
+    title: Tolerance in credit amount, quantity and unit prices
+    topics: [amount, tolerance]

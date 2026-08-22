@@ -1,0 +1,38 @@
+{
+  "lc": {
+    "lc_number": "LC-DEMO-0002",
+    "amount": 50000.00,
+    "currency": "USD",
+    "expiry_date": "2026-04-30",
+    "latest_shipment": "2026-04-15",
+    "incoterm": "CIF",
+    "beneficiary": "Fictional Exporters Pte Ltd",
+    "applicant": "Imaginary Importers Co",
+    "terms": {
+      "goods_description": "500 cartons of organic green tea",
+      "documents_required": "invoice, bill_of_lading, insurance"
+    }
+  },
+  "documents": [
+    {
+      "doc_type": "invoice",
+      "fields": {
+        "amount": "62000.00",
+        "currency": "EUR",
+        "goods_description": "assorted electronic gadgets",
+        "issue_date": "2026-04-12"
+      },
+      "pages": 1,
+      "document_id": "inv-demo-0002"
+    },
+    {
+      "doc_type": "bill_of_lading",
+      "fields": {
+        "shipment_date": "2026-04-20",
+        "goods_description": "assorted electronic gadgets"
+      },
+      "pages": 2,
+      "document_id": "bl-demo-0002"
+    }
+  ]
+}

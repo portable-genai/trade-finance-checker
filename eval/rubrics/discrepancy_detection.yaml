@@ -1,0 +1,28 @@
+# Rubric: discrepancy detection (recall + precision) for the B4 promotion gate.
+#
+# This is the human-facing source of truth for the discrepancy-detection thresholds;
+# eval/run_eval.py reads `metric`/`threshold` and the companion metric from here so code
+# and docs stay aligned.
+
+metric: discrepancy_recall
+threshold: 0.90
+description: >
+  Fraction of the planted discrepancies (per the golden ground truth) that the
+  deterministic detector actually finds, averaged over the golden presentations. A
+  trade-finance checker that misses real discrepancies is worse than useless, so the bar
+  is high.
+
+companion_metrics:
+  discrepancy_precision:
+    threshold: 0.90
+    description: >
+      Fraction of detected discrepancies that are genuine (present in the ground truth).
+      On a clean presentation any detected discrepancy is a false positive; false
+      discrepancies waste officer time and erode trust, so precision is gated equally hard.
+
+scoring:
+  evaluator: offline heuristic (deterministic) plus the Gen AI evaluation service at promotion
+  notes: >
+    The offline gate drives the real TradeCheckService against in-memory fakes with a fixed
+    as_of date for determinism, then compares the detected discrepancy kinds and the verdict
+    against each golden example's expected_discrepancy_kinds / expected_verdict.

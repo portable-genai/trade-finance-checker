@@ -1,0 +1,181 @@
+# Trade-Finance Document Checker (B4) : runtime configuration.
+#
+# Three deployment profiles, selected by TRADE_FINANCE_PROFILE (or profile: below):
+#   local  : a WORKING offline laptop stack (SQLite FTS5 over UCP600 + deterministic LLM,
+#            SDK-free, no API key, no emulator required). The dev / test default, used
+#            when TRADE_FINANCE_PROFILE is unset.
+#   gcp    : Google Cloud managed services (lazy SDK imports). Production sets
+#            TRADE_FINANCE_PROFILE=gcp explicitly (see Dockerfile).
+#   onprem : fail-fast Google Distributed Cloud migration placeholders.
+# Nothing in src/trade_finance_checker/domain changes between profiles.
+#
+# The profile below deliberately has NO literal fallback. An unset TRADE_FINANCE_PROFILE and
+# an unset profile: key together mean "nobody chose", which is a third state: the SDK-free
+# local adapters still bind (nothing else can, with no cloud SDK installed) but every
+# relaxation is refused, so the seeded no-auth personas and the localhost CORS origins are NOT
+# served. Write a profile here, or set TRADE_FINANCE_PROFILE, to consent to one deliberately.
+
+project_id: ${GOOGLE_CLOUD_PROJECT:-your-gcp-project}
+region: asia-southeast1                 # Singapore : Transaction Banking data residency
+profile: ${TRADE_FINANCE_PROFILE:-}        # local | live | gcp | platform | onprem
+kms_key: ${TRADE_FINANCE_KMS_KEY:-}        # regional Cloud KMS key for CMEK
+
+models:
+  reasoning: gemini-3.5-flash           # GA : discrepancy explanation + report prose (thinking=high)
+  triage: gemini-3.1-flash-lite         # GA : routing / doc-type triage / guardrail pre-checks
+  hard_reasoning: gemini-3.1-pro        # Preview : OFF unless use_hard_reasoning=true
+  use_hard_reasoning: false
+
+document_ai:
+  processor_id: ${TRADE_FINANCE_DOCAI_PROCESSOR:-}
+  location: asia-southeast1
+  processor_version: ${TRADE_FINANCE_DOCAI_VERSION:-}
+
+rules_kb:                               # A2 Enterprise KB : governed UCP600 rule set (R3)
+  collection: ucp600-rules
+  top_k: 8
+  acl_principals:
+    - trade-finance-checker
+
+model_armor:
+  template_id: trade-finance-guardrail
+  host: modelarmor.asia-southeast1.rep.googleapis.com
+
+dlp:
+  inspect_template: ${TRADE_FINANCE_DLP_INSPECT_TEMPLATE:-}
+  deidentify_template: ${TRADE_FINANCE_DLP_DEIDENTIFY_TEMPLATE:-}
+
+pii:
+  jurisdictions: ${TRADE_FINANCE_PII_JURISDICTIONS:-SG,HK,JP,AU}
+
+logging:
+  log_name: trade-finance-checker-audit
+  bucket: trade-finance-checker-worm
+  retention_days: 2557                  # ~7 years; bucket is locked (irreversible) in prod
+
+agent_engine:
+  resource_name: ${TRADE_FINANCE_AGENT_ENGINE:-}
+  display_name: trade-finance-checker
+
+check:
+  amount_tolerance_pct: 0.0             # LC amount tolerance band, e.g. 0.05 for +/- 5%
+  description_min_overlap: 0.6          # token-overlap floor for goods-description match
+
+# SDK-free 'local' profile stores. Empty => per-package defaults under
+# ~/.trade_finance_checker/ ; tests pass ':memory:' for ephemeral, deterministic stores.
+local:
+  rules_db_path: ${TRADE_FINANCE_LOCAL_RULES_DB:-}  # SQLite FTS5 UCP600 rule index
+  audit_path: ${TRADE_FINANCE_LOCAL_AUDIT:-}        # append-only local audit store
+
+# The `live` profile's local model server: real inference on the operator's own machine
+# (MLX / Ollama / vLLM / llama.cpp, any OpenAI-compatible /chat/completions endpoint).
+# Under live the presentation data is whatever the audience submits; the deterministic
+# detector still decides every discrepancy and this model only narrates the report.
+live:
+  llm_url: ${TRADE_FINANCE_LIVE_LLM_URL:-http://127.0.0.1:8001/chat/completions}
+  llm_model: ${TRADE_FINANCE_LIVE_LLM_MODEL:-mlx-community/gemma-4-26b-a4b-it-8bit}
+  timeout_seconds: ${TRADE_FINANCE_LIVE_TIMEOUT:-240}
+  max_output_tokens: ${TRADE_FINANCE_LIVE_MAX_TOKENS:-2048}
+
+# ----------------------------------------------------------------------------- #
+# Port -> adapter bindings. The container picks the entry for the active profile,
+# falling back to the 'gcp' entry. These dotted paths are the build contract:
+# each adapter class takes a single Settings argument.
+# ----------------------------------------------------------------------------- #
+adapters:
+  extraction:
+    gcp: trade_finance_checker.adapters.gcp.document_ai_extraction:DocumentAiExtractionAdapter
+    platform: trade_finance_checker.adapters.gcp.document_ai_extraction:DocumentAiExtractionAdapter
+    local: trade_finance_checker.adapters.local.extraction:LocalDocumentExtractionAdapter
+    live: trade_finance_checker.adapters.local.extraction:LocalDocumentExtractionAdapter
+    onprem: trade_finance_checker.adapters.onprem.extraction:OnPremExtractionAdapter
+  rules:
+    gcp: trade_finance_checker.adapters.platform.remote_rules:RemoteRulesAdapter
+    local: trade_finance_checker.adapters.local.rules:LocalFtsRulesAdapter
+    live: trade_finance_checker.adapters.local.rules:LocalFtsRulesAdapter
+    platform: trade_finance_checker.adapters.platform.remote_rules:RemoteRulesAdapter
+    onprem: trade_finance_checker.adapters.onprem.rules:OnPremRulesAdapter
+  llm:
+    gcp: trade_finance_checker.adapters.gcp.gemini_llm:GeminiLLMAdapter
+    platform: trade_finance_checker.adapters.gcp.gemini_llm:GeminiLLMAdapter
+    local: trade_finance_checker.adapters.local.llm:LocalDeterministicLLMAdapter
+    live: trade_finance_checker.adapters.live.llm:GemmaLocalLLMAdapter
+    onprem: trade_finance_checker.adapters.onprem.llm:OnPremLLMAdapter
+  guardrail:
+    gcp: trade_finance_checker.adapters.gcp.model_armor_guardrail:ModelArmorGuardrailAdapter
+    local: trade_finance_checker.adapters.local.guardrail:LocalHeuristicGuardrailAdapter
+    live: trade_finance_checker.adapters.local.guardrail:LocalHeuristicGuardrailAdapter
+    platform: trade_finance_checker.adapters.platform.remote_guardrail:RemoteGuardrailAdapter
+    onprem: trade_finance_checker.adapters.onprem.guardrail:OnPremGuardrailAdapter
+  redaction:
+    gcp: trade_finance_checker.adapters.gcp.dlp_redaction:DlpRedactionAdapter
+    platform: trade_finance_checker.adapters.gcp.dlp_redaction:DlpRedactionAdapter
+    local: trade_finance_checker.adapters.local.redaction:LocalRegexRedactionAdapter
+    live: trade_finance_checker.adapters.local.redaction:LocalRegexRedactionAdapter
+    onprem: trade_finance_checker.adapters.onprem.redaction:OnPremRedactionAdapter
+  agent_runtime:
+    gcp: trade_finance_checker.adapters.gcp.agent_runtime:AgentRuntimeAdapter
+    platform: trade_finance_checker.adapters.gcp.agent_runtime:AgentRuntimeAdapter
+    local: trade_finance_checker.adapters.local.runtime:LocalAgentRuntimeAdapter
+    live: trade_finance_checker.adapters.local.runtime:LocalAgentRuntimeAdapter
+    onprem: trade_finance_checker.adapters.onprem.runtime:OnPremAgentRuntimeAdapter
+  session:
+    gcp: trade_finance_checker.adapters.gcp.vertex_sessions:VertexSessionsAdapter
+    platform: trade_finance_checker.adapters.gcp.vertex_sessions:VertexSessionsAdapter
+    local: trade_finance_checker.adapters.local.session:LocalSessionAdapter
+    live: trade_finance_checker.adapters.local.session:LocalSessionAdapter
+    onprem: trade_finance_checker.adapters.onprem.session:OnPremSessionAdapter
+  memory:
+    gcp: trade_finance_checker.adapters.gcp.vertex_memory_bank:VertexMemoryBankAdapter
+    platform: trade_finance_checker.adapters.gcp.vertex_memory_bank:VertexMemoryBankAdapter
+    local: trade_finance_checker.adapters.local.memory:LocalMemoryAdapter
+    live: trade_finance_checker.adapters.local.memory:LocalMemoryAdapter
+    onprem: trade_finance_checker.adapters.onprem.memory:OnPremMemoryAdapter
+  audit:
+    gcp: trade_finance_checker.adapters.gcp.cloud_logging_audit:CloudLoggingAuditAdapter
+    local: trade_finance_checker.adapters.local.audit:LocalAppendOnlyAuditAdapter
+    live: trade_finance_checker.adapters.local.audit:LocalAppendOnlyAuditAdapter
+    platform: trade_finance_checker.adapters.platform.remote_audit:RemoteAuditAdapter
+    onprem: trade_finance_checker.adapters.onprem.audit:OnPremAuditAdapter
+  tracer:
+    gcp: trade_finance_checker.adapters.gcp.cloud_trace_tracer:CloudTraceTracerAdapter
+    platform: trade_finance_checker.adapters.gcp.cloud_trace_tracer:CloudTraceTracerAdapter
+    local: trade_finance_checker.adapters.local.tracer:LocalNoopTracerAdapter
+    live: trade_finance_checker.adapters.local.tracer:LocalNoopTracerAdapter
+    onprem: trade_finance_checker.adapters.onprem.tracer:OnPremTracerAdapter
+  evaluation:
+    gcp: trade_finance_checker.adapters.gcp.genai_eval:GenAiEvalAdapter
+    local: trade_finance_checker.adapters.local.evaluation:LocalOfflineEvalAdapter
+    live: trade_finance_checker.adapters.local.evaluation:LocalOfflineEvalAdapter
+    platform: trade_finance_checker.adapters.platform.remote_evaluation:RemoteEvaluationAdapter
+    onprem: trade_finance_checker.adapters.onprem.evaluation:OnPremEvalAdapter
+  registry:
+    gcp: trade_finance_checker.adapters.gcp.a2a_registry:A2ARegistryAdapter
+    local: trade_finance_checker.adapters.local.registry:LocalRegistryAdapter
+    live: trade_finance_checker.adapters.local.registry:LocalRegistryAdapter
+    platform: trade_finance_checker.adapters.platform.remote_registry:RemoteRegistryAdapter
+    onprem: trade_finance_checker.adapters.onprem.registry:OnPremRegistryAdapter
+  tool_catalog:
+    gcp: trade_finance_checker.adapters.gcp.mcp_tool_catalog:McpToolCatalogAdapter
+    platform: trade_finance_checker.adapters.gcp.mcp_tool_catalog:McpToolCatalogAdapter
+    local: trade_finance_checker.adapters.local.tool_catalog:LocalToolCatalogAdapter
+    live: trade_finance_checker.adapters.local.tool_catalog:LocalToolCatalogAdapter
+    onprem: trade_finance_checker.adapters.onprem.tool_catalog:OnPremToolCatalogAdapter
+  identity:                               # server-verified end-user identity (never client-asserted)
+    gcp: trade_finance_checker.adapters.gcp.iap_identity:IapIdentityAdapter
+    local: trade_finance_checker.adapters.local.identity:LocalPersonaIdentityAdapter
+    live: trade_finance_checker.adapters.local.identity:LocalPersonaIdentityAdapter
+    platform: trade_finance_checker.adapters.gcp.iap_identity:IapIdentityAdapter
+    onprem: trade_finance_checker.adapters.onprem.identity:OnPremIdentityAdapter
+  acl:                                    # server-side object owner registry (object-level authz)
+    gcp: trade_finance_checker.adapters.platform.remote_entitlements:RemoteAclAdapter
+    local: trade_finance_checker.adapters.local.entitlements:LocalAclAdapter
+    live: trade_finance_checker.adapters.local.entitlements:LocalAclAdapter
+    platform: trade_finance_checker.adapters.platform.remote_entitlements:RemoteAclAdapter
+    onprem: trade_finance_checker.adapters.onprem.entitlements:OnPremAclAdapter
+  review_router:                          # route requires_human_review to the Hrz7 console (R8)
+    gcp: trade_finance_checker.adapters.platform.review_router:PlatformReviewRouter
+    local: trade_finance_checker.adapters.local.review_router:LocalReviewRouter
+    live: trade_finance_checker.adapters.local.review_router:LocalReviewRouter
+    platform: trade_finance_checker.adapters.platform.review_router:PlatformReviewRouter
+    onprem: trade_finance_checker.adapters.onprem.review_router:OnPremReviewRouter

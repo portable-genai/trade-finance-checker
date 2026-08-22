@@ -1,0 +1,20 @@
+# Copy to terraform.tfvars and fill in. Only project_id (and the org access policy, if you
+# create the VPC-SC perimeter) are required; the region defaults to asia-southeast1.
+
+project_id = "your-sg-project"
+
+# The region is chosen at deploy time and validated against the residency allowlist.
+# Leave the defaults unless you have completed a residency review: deploying elsewhere
+# means setting BOTH values below.
+allowed_regions = ["asia-southeast1"]
+region          = "asia-southeast1"
+
+# WORM audit retention (~7 years). Locking is irreversible : confirm before apply.
+audit_retention_days = 2557
+
+# CMEK rotation period (90 days).
+kms_rotation_period = "7776000s"
+
+# Org-level Access Context Manager policy id for the VPC-SC perimeter. Leave empty to skip
+# perimeter creation (e.g. in a sandbox project without an org policy).
+access_policy_id = ""
