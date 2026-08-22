@@ -16,9 +16,11 @@ plan, asks before writing (unless ``--yes``), and by default leaves docs prose a
 
 Note on this repo's naming: the CLI entry point, the resource-id stem, and the pip
 distribution name all share the one stem ``trade-finance-checker`` (only the Python package
-``trade_finance_checker`` and the env prefix differ). Because they are textually identical
-in the source, a fork normally passes the SAME value for ``--cli`` and ``--resource``; the
-distribution defaults to ``--resource`` for the same reason. The
+``trade_finance_checker`` and the env prefix differ). They are textually identical in the
+source, so the distribution and the console script are rewritten through their own
+declarations and ``--dist``, ``--cli`` and ``--resource`` may each take a different value; a
+fork normally passes one value for all three, and the distribution defaults to
+``--resource``. The
 repo/folder name ``trade-finance-checker`` (clone URLs, CI badges) is only rewritten
 under ``--include-docs``, where it becomes the ``--dist`` value by substring.
 
@@ -92,13 +94,16 @@ def _iter_files(include_docs: bool):
 
 def _replacements(args: argparse.Namespace) -> list[tuple[str, str]]:
     env_prefix = args.env_prefix.rstrip("_").upper() + "_"
-    # In this repo the distribution name, the resource stem and the CLI name are the one
-    # string ``trade-finance-checker``, so the distribution defaults to the resource and
-    # the three kebab entries below resolve to the same target when
-    # a fork passes the same value for --cli and --resource. The package (snake_case) and
-    # env prefix are distinct strings, so their order relative to the stem does not matter.
+    # Three constants are the same token here, so replacing any of them bare consumes every
+    # occurrence and leaves the others doing nothing. The distribution and the console script
+    # each have a declaration to anchor on; anchoring them is what keeps --dist, --cli and
+    # --resource independently meaningful.
     return [
-        (_OLD_DIST, args.dist or args.resource),
+        (f'name = "{_OLD_DIST}"', f'name = "{args.dist or args.resource}"'),
+        (
+            f'{_OLD_CLI} = "{_OLD_PACKAGE}.cli.main:app"',
+            f'{args.cli} = "{args.package}.cli.main:app"',
+        ),
         (_OLD_PACKAGE, args.package),
         (_OLD_RESOURCE, args.resource),
         (_OLD_CLI, args.cli),

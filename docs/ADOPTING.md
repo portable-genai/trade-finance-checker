@@ -54,8 +54,9 @@ changes onto each release rather than merging `main` continuously.
 
 `scripts/rename_fork.py` rewrites the package name, CLI entry point, `TRADE_FINANCE_` env
 prefix, and resource ids across the tree in one pass. In this repo the CLI name, the
-resource-id stem, and the pip distribution name are the one stem `trade-finance-checker`, so
-a fork normally passes the SAME value for `--cli` and `--resource`. Preview first, then
+resource-id stem, and the pip distribution name are the one stem `trade-finance-checker`;
+each is rewritten through its own declaration, so `--dist`, `--cli` and `--resource` may
+differ, and a fork normally passes the same value for all three. Preview first, then
 apply:
 
 ```bash

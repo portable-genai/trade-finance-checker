@@ -8,8 +8,9 @@ For an engineering lead forking this repo as their institution's base. The step-
 `scripts/rename_fork.py` rewrites the package name (`trade_finance_checker`), the CLI entry
 point (`trade-finance-checker`), the `TRADE_FINANCE_` env prefix, and the resource-id stem in
 one pass (preview with `--dry-run`, apply with `--yes`). In this repo the CLI name, the
-resource stem, and the pip distribution name are the one string `trade-finance-checker`, so a
-fork normally passes the SAME value for `--cli` and `--resource`. Then recreate the venv,
+resource stem, and the pip distribution name are the one string `trade-finance-checker`;
+each is rewritten through its own declaration, so the three may differ, and a fork normally
+passes the same value for all of them. Then recreate the venv,
 `pip install -e ".[dev]"`, and run `make lint test eval`. The script does the mechanical
 rename; the human decisions (region, IdP, PII pack, check policy, fixtures, eval golden set)
 are the checklist in `ADOPTING.md`.
