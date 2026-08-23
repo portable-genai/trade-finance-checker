@@ -56,7 +56,10 @@ _TAG_COMMIT_LINE = re.compile(
 
 def test_every_shipped_lockfile_is_one_the_extra_map_names() -> None:
     """A third lockfile appearing on disk fails here, loudly, instead of being skipped."""
-    assert _LOCKFILES == tuple(sorted(_LOCK_EXTRA))
+    named = tuple(sorted(_LOCK_EXTRA))
+    assert named == _LOCKFILES, (
+        f"lockfiles on disk {_LOCKFILES} do not match the extras the map names {named}"
+    )
 
 
 def _declared_refs(extra: str | None = None) -> dict[str, str]:
