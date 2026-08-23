@@ -37,7 +37,10 @@ _REPO_ROOT = Path(__file__).resolve().parents[2]
 #: declared only in a different extra is legitimately absent from the other lockfile, so the
 #: scoping has to be preserved here or the checks below invent failures.
 _LOCK_EXTRA = {"requirements-dev.lock": "dev", "requirements-gcp.lock": "gcp"}
-_LOCKFILES = tuple(sorted(_LOCK_EXTRA))
+#: Discovered by glob, not read off the map above: a lockfile the repo ships that the map
+#: does not name would otherwise escape every check below and sit on a superseded pin
+#: indefinitely. The parity test beneath the constants keeps the two in step.
+_LOCKFILES = tuple(sorted(path.name for path in _REPO_ROOT.glob("requirements-*.lock")))
 
 #: `name[extras] @ git+URL@REF`, the shape a commons dependency is declared and pinned in. The
 #: ref is captured loosely, on purpose: a check that only matched a 40-character commit would
@@ -49,6 +52,11 @@ _GIT_PIN = re.compile(r"^([a-z0-9-]+)(?:\[[^\]]*\])?\s*@\s*git\+\S+?@(\S+)$")
 _TAG_COMMIT_LINE = re.compile(
     r"^#\s+(?P<package>[a-z0-9-]+)\s+(?P<tag>v[0-9]\S*)\s*=\s*(?P<commit>[0-9a-f]{40})\s*$"
 )
+
+
+def test_every_shipped_lockfile_is_one_the_extra_map_names() -> None:
+    """A third lockfile appearing on disk fails here, loudly, instead of being skipped."""
+    assert _LOCKFILES == tuple(sorted(_LOCK_EXTRA))
 
 
 def _declared_refs(extra: str | None = None) -> dict[str, str]:
