@@ -19,7 +19,16 @@ COPY requirements-gcp.lock ./
 COPY src ./src
 COPY config ./config
 
-RUN python -m venv /opt/venv \
+# git is a BUILD dependency, not a convenience: every commons line in the lockfile is a
+# `git+https://` direct reference, and pip shells out to git to fetch them. Without it the
+# builder stage fails on the first commons pin, which is what it did until 2026-08-24 — the
+# image had not been buildable since the migration moved the commons onto git references, and
+# no CI job here builds an image, so nothing said so. It stays in the builder stage alone; the
+# runtime stage copies the finished venv and needs no git.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends git \
+    && rm -rf /var/lib/apt/lists/* \
+    && python -m venv /opt/venv \
     && . /opt/venv/bin/activate \
     && pip install --upgrade pip \
     && pip install -r requirements-gcp.lock && pip install --no-deps .
