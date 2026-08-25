@@ -43,7 +43,7 @@ install-demo: venv
 # NOT a bare `uv pip compile`: that REPLACES the output file, destroying the header block and
 # the `tag = commit` map with it. scripts/lock.py compiles and puts the header back, and
 # tests/unit/test_repo_artifacts.py fails the gate if a lockfile ever appears without one.
-lock: ## Recompile both lockfiles from pyproject.toml and restore the tag = commit headers.
+lock: ## Recompile every lockfile from pyproject.toml and restore the tag = commit headers.
 	$(ACT) && python scripts/lock.py
 
 lint:
