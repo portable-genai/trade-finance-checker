@@ -9,7 +9,7 @@ from .entitlements import AclPort
 from .extraction import DocumentExtractionPort
 from .generation import LLMPort
 from .governance import AgentRegistryPort, ToolCatalogPort
-from .identity import IdentityPort
+from .identity import EndUserAuthUnavailableError, IdentityPort
 from .observability import (
     AuditSinkPort,
     EvaluationGatePort,
@@ -37,6 +37,7 @@ __all__ = [
     "AgentRegistryPort",
     "ToolCatalogPort",
     "IdentityPort",
+    "EndUserAuthUnavailableError",
     "AclPort",
     "ReviewRouterPort",
 ]
