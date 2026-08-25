@@ -66,7 +66,7 @@ from trade_finance_checker.config import Settings
 
 remote = agent_engines.create(
     build_root_agent(Settings.load()),
-    requirements=["google-adk==2.3.0", "trade-finance-checker"],
+    requirements=["google-adk==2.7.1", "trade-finance-checker"],
 )  # record remote.resource_name in settings.agent_engine.resource_name
 ```
 

@@ -17,6 +17,10 @@ from __future__ import annotations
 from ...config import Settings
 from ...domain.models import ToolSpec
 
+# MCP protocol revision this catalog conforms to. The stateless era: the initialize
+# handshake this catalog once assumed was removed in this revision.
+MCP_PROTOCOL_VERSION = "2026-07-28"
+
 _TOOLS: tuple[ToolSpec, ...] = (
     ToolSpec(
         name="check_presentation",
