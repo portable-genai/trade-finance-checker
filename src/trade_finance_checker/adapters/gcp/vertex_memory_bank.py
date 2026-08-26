@@ -27,7 +27,8 @@ class VertexMemoryBankAdapter:
 
             self._service = VertexAiMemoryBankService(
                 project=self._settings.project_id,
-                location=self._settings.region,
+                # MODEL location, not the compute region.
+                location=self._settings.models.location,
             )
         return self._service
 

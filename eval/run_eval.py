@@ -337,7 +337,7 @@ class FakeLLMAdapter:
     """
 
     def __init__(self) -> None:
-        self.model = "gemini-3.5-flash"
+        self.model = "gemini-3.7-flash"
 
     def generate(self, request: LlmRequest) -> LlmResponse:
         payload = {"narrative": "Deterministic examiner narrative.", "cited_articles": []}
