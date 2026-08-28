@@ -31,7 +31,9 @@ which is chosen at deploy time and validated against the `allowed_regions` allow
 `terraform plan` is the region gate: if any required service is unavailable in the selected
 region the dependent resources error before anything is created. There are no global
 endpoints, and `region` is validated against `allowed_regions`, so a region outside the
-residency allowlist is refused at plan time. Extending `allowed_regions` is the deliberate
+residency allowlist is refused at plan time. Document AI is the one service that does not take
+`region`: it has its own validated `docai_location` (default `us`) because it reaches
+`asia-southeast1` only once Google grants single-region access. Extending `allowed_regions` is the deliberate
 residency review point.
 
 ## WORM bucket warning (P-07)

@@ -62,8 +62,9 @@ still `aiplatform.googleapis.com`.
 | Interop | A2A v1.0 + MCP 2026-07-28 | AgentCard `/.well-known/agent-card.json`; ADK `to_a2a`, `McpToolset` |
 | Sovereignty | VPC-SC, regional CMEK, Org Policy, Assured Workloads | `asia-southeast1` |
 
-Gotchas honoured: regional endpoints + per-service CMEK for residency (global endpoint
-gives none); message-content capture OFF in spans (PII); locked log bucket is irreversible
+Gotchas honoured: regional endpoints + per-service CMEK for residency (a global endpoint
+gives none, which is why Document AI's deviation is to the `us` multi-region and never to
+`global`); message-content capture OFF in spans (PII); locked log bucket is irreversible
 (retention is a Terraform var); never use the floating ADK default model or
 `gemini-2.0-flash` (discontinued); one built-in tool per agent.
 

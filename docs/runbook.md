@@ -21,9 +21,17 @@ terraform apply -var project_id=your-sg-project
 
 `terraform plan` is the region fail-fast gate (P-01): `region` is chosen at deploy time and
 refused unless it is in the `allowed_regions` residency allowlist (default
-`["asia-southeast1"]`), and if Document AI (or any required service) is unavailable in the
-selected region the plan errors before anything is created. Everything is regional; no global
-endpoints are used.
+`["asia-southeast1"]`), and if a required service is unavailable in the selected region the
+plan errors before anything is created. No global endpoints are used.
+
+**Document AI is the documented exception, not a misconfiguration to escalate.** It is created
+at `var.docai_location`, which defaults to the `us` multi-region because the service reaches
+`asia-southeast1` only once Google grants the Document AI Single Region Request. Keep it equal
+to the runtime's `TRADE_FINANCE_DOCAI_LOCATION`: if the two disagree the processor is created in
+one location and looked for in another, and the failure surfaces as a 404 at request time
+instead of at apply. Move both to `asia-southeast1` the day access lands. Do NOT point any other
+service at a global endpoint to work around a region error; that is the failure this gate exists
+to catch.
 
 **Order matters for the WORM bucket.** The Cloud Logging locked bucket (`logging_worm.tf`)
 is created with retention `2557` days and is **locked last**. Locking is **irreversible**:
