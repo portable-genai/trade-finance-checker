@@ -29,9 +29,12 @@ at `var.docai_location`, which defaults to the `us` multi-region because the ser
 `asia-southeast1` only once Google grants the Document AI Single Region Request. Keep it equal
 to the runtime's `TRADE_FINANCE_DOCAI_LOCATION`: if the two disagree the processor is created in
 one location and looked for in another, and the failure surfaces as a 404 at request time
-instead of at apply. Move both to `asia-southeast1` the day access lands. Do NOT point any other
-service at a global endpoint to work around a region error; that is the failure this gate exists
-to catch.
+instead of at apply. Move both to `asia-southeast1` the day access lands. Neither side accepts
+a location that is neither the deploy region nor a named multi-region: `global` is refused by
+name at `terraform plan`, and again when the runtime loads its settings, so a service pointed
+at an unlocated endpoint fails at startup rather than extracting bytes nobody can place. Do NOT
+point any other service at a global endpoint to work around a region error; that is the failure
+this gate exists to catch.
 
 **Order matters for the WORM bucket.** The Cloud Logging locked bucket (`logging_worm.tf`)
 is created with retention `2557` days and is **locked last**. Locking is **irreversible**:
