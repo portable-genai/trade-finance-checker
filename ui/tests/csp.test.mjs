@@ -127,8 +127,27 @@ test("connect-src default agrees with the client's own default base URL", () => 
   assert.equal(directives(contentSecurityPolicy({}))["connect-src"], `'self' ${DEFAULT_API_BASE}`);
 });
 
-test("a relative NEXT_PUBLIC_API_BASE is refused rather than silently dropped", () => {
-  assert.throws(() => contentSecurityPolicy({ NEXT_PUBLIC_API_BASE: "/api" }), /absolute URL/);
+test("a rooted API base stays same-origin rather than being refused", () => {
+  // A host portal mounting this console under its own route sets exactly this. Same-origin is
+  // already covered by 'self', so it widens nothing, and refusing it answered 500 on a working
+  // deployment. What must never happen is the value being dropped while it names a real origin,
+  // which is the case below.
+  const parsed = directives(contentSecurityPolicy({ NEXT_PUBLIC_API_BASE: "/apps/doc4/api" }));
+  assert.equal(parsed["connect-src"], "'self'");
+});
+
+test("a protocol-relative API base is refused rather than read as same-origin", () => {
+  assert.throws(
+    () => contentSecurityPolicy({ NEXT_PUBLIC_API_BASE: "//api.example/v1" }),
+    /must name its scheme/,
+  );
+});
+
+test("an API base that is neither absolute nor rooted is refused", () => {
+  assert.throws(
+    () => contentSecurityPolicy({ NEXT_PUBLIC_API_BASE: "api.example/v1" }),
+    /NEXT_PUBLIC_API_BASE/,
+  );
 });
 
 test("nonces are unique and base64", () => {
