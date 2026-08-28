@@ -61,13 +61,34 @@ function isWildcard(token) {
   return WILDCARD_TOKENS.has(token) || token.includes("*");
 }
 
-/** Origin of the API base the browser will actually call, so `connect-src` can name it. */
+/**
+ * Origin of the API base the browser will actually call, so `connect-src` can name it.
+ *
+ * A rooted path is the SAME-ORIGIN deployment, which is what a host portal mounting this console
+ * under its own route sets. There is no second origin to name there, and `'self'` already permits
+ * it, so "" is the correct answer rather than an error: refusing it made the console answer 500
+ * behind the portal, which is a working configuration reported as a broken one.
+ *
+ * A protocol-relative value is still refused. It names a DIFFERENT host while looking rooted, so
+ * treating it as same-origin would drop a genuinely cross-origin API out of `connect-src`, which
+ * is the silent-drop this function exists to prevent.
+ *
+ * @param {Record<string, string | undefined>} env
+ * @returns {string} an origin to add to `connect-src`, or "" when same-origin
+ */
 function apiOrigin(env) {
-  const raw = env.NEXT_PUBLIC_API_BASE || DEFAULT_API_BASE;
+  const raw = (env.NEXT_PUBLIC_API_BASE || DEFAULT_API_BASE).trim();
+  if (!raw) return "";
+  if (raw.startsWith("//")) {
+    throw new Error(`NEXT_PUBLIC_API_BASE must name its scheme, got: ${raw}`);
+  }
+  if (raw.startsWith("/")) return "";
   try {
     return new URL(raw).origin;
   } catch {
-    throw new Error(`NEXT_PUBLIC_API_BASE must be an absolute URL, got: ${raw}`);
+    throw new Error(
+      `NEXT_PUBLIC_API_BASE must be an absolute URL or a rooted same-origin path, got: ${raw}`,
+    );
   }
 }
 
