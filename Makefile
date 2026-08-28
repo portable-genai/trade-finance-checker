@@ -87,7 +87,13 @@ demo-selftest: ## Prove the real presenter states and evidence hooks cannot rot 
 demo-browser: ## Drive the SERVED presenter demo through a real headless browser ([demo] extra).
 	$(ACT) && TRADE_FINANCE_PROFILE=local pytest tests/browser -q -rs
 
-check: lint test eval demo-selftest portability ## The full offline quality gate (no node, no cloud).
+plugin: ## Render the Agent Plugins 1.0.0 directory from this repo's own declarations.
+	python scripts/render_plugin.py --dest dist/plugin
+
+mcp-serve: ## Serve the governed tool catalog over MCP 2026-07-28 (stdio; needs [gcp]).
+	python -m trade_finance_checker.mcp
+
+check: lint test eval demo-selftest portability plugin ## The full offline quality gate (no node, no cloud).
 
 ui-install:
 	npm ci --prefix ui
