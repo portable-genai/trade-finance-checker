@@ -1,4 +1,4 @@
-import { ConfiguredEmptyError, readEnvSetting } from "./env-setting.mjs";
+import { ConfiguredEmptyError, readEnvValue } from "./env-setting.mjs";
 // Thin client for the B4 FastAPI backend. Base URL from NEXT_PUBLIC_API_BASE (default
 // http://localhost:8094, the B4 service port).
 
@@ -13,7 +13,13 @@ import type { CheckRequest, DiscrepancyReport, Health, Persona } from "./types";
 // that never configured the variable. Next inlines NEXT_PUBLIC_* AT BUILD TIME, so the wrong
 // value is frozen into the bundle and cannot be corrected at start-up.
 const DEFAULT_API_BASE = "http://localhost:8094";
-const API_BASE_SETTING = readEnvSetting(process.env, "NEXT_PUBLIC_API_BASE");
+// The literal member expression is required: a bundler substitutes the public value
+// only where it sees exactly this, and handing it `process.env` leaves the browser
+// reading {} and silently taking the hard-coded loopback default.
+const API_BASE_SETTING = readEnvValue(
+  "NEXT_PUBLIC_API_BASE",
+  process.env.NEXT_PUBLIC_API_BASE,
+);
 if (API_BASE_SETTING.isConfiguredEmpty) {
   throw new ConfiguredEmptyError(
     "NEXT_PUBLIC_API_BASE is set to an empty value. An emptied variable names nothing, " +
