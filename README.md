@@ -320,7 +320,7 @@ See [`COMPLIANCE.md`](COMPLIANCE.md) for how this maps to the model-risk rule (R
 
 | Control | How it is enforced |
 |---------|--------------------|
-| **Region pin** (`asia-southeast1`) | Every service and SDK call targets the Singapore region; no global endpoints. |
+| **Region pin** (`asia-southeast1`) | Every service and SDK call targets the Singapore region **except Document AI**, which routes to the `us` multi-region until Google grants single-region access — a stated deviation, not a global endpoint. See the residency row in [`COMPLIANCE.md`](COMPLIANCE.md). |
 | **VPC Service Controls** | All managed services sit inside a service perimeter so data cannot egress. |
 | **CMEK** (regional) | Customer-managed Cloud KMS keys (`TRADE_FINANCE_KMS_KEY`) encrypt Document AI output, the log bucket, and more. |
 | **PII redaction before model** (**P-04**) | `DlpRedactionAdapter` de-identifies trade-party PII *before* it reaches the model, a span, or the audit sink. |

@@ -59,10 +59,13 @@ should integrate them rather than hand-maintain the table.
 
 ### Is data residency enforced?
 
-Yes, at deploy time: a single in-country region (default `asia-southeast1` / Singapore),
-validated to fail fast in `infra/terraform/`, with regional endpoints, CMEK (`kms.tf`), WORM
-logging (`logging_worm.tf`), a VPC-SC perimeter (`vpc_sc.tf`) and least-privilege IAM (P-01,
-P-03, P-10). The residency-violation CI gate is **Rsk3** `architecture-validator`
+Yes at deploy time, with one stated exception. A single in-country region (default
+`asia-southeast1` / Singapore) is validated to fail fast in `infra/terraform/`, with regional
+endpoints, CMEK (`kms.tf`), WORM logging (`logging_worm.tf`), a VPC-SC perimeter (`vpc_sc.tf`)
+and least-privilege IAM (P-01, P-03, P-10). **Document AI is not in-country:** it serves
+`asia-southeast1` only once Google grants single-region access, so document extraction routes
+to the `us` multi-region until then. That is a jurisdiction, not a global endpoint, and it is
+recorded in [`COMPLIANCE.md`](../../COMPLIANCE.md) rather than absorbed. The residency-violation CI gate is **Rsk3** `architecture-validator`
 (`domain/residency/`); the exit/concentration-risk plan is **Rgc9**
 `operational-resilience-mapping` (`domain/concentration_exit/`). This repo enforces residency in
 its own infra and is one of the systems those tools reason about. One honest gap: Terraform is

@@ -193,8 +193,11 @@ flowchart TB
     KMS -. encrypts .-> LOG
 ```
 
-- **One region for everything** (`asia-southeast1`); regional endpoints + per-service CMEK
-  give the residency guarantee that a global endpoint would not.
+- **One region for everything** (`asia-southeast1`) **except Document AI**, which serves
+  `asia-southeast1` only once Google grants single-region access and routes to the `us`
+  multi-region until then; regional endpoints + per-service CMEK give the residency guarantee
+  that a global endpoint would not, and the Document AI deviation is to a named jurisdiction
+  for exactly that reason.
 - **Eval gate** is a promotion-time check, not an inline request dependency.
 
 ---
