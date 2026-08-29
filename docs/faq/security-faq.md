@@ -32,9 +32,9 @@ that was RED before the fix.
 
 The platform adapters source their S2S helper from the shared `hex-service-kit` commons
 (`adapters/platform/_s2s.py`): base URLs must be `https://` outside loopback (rejected at
-adapter construction), a bearer credential is attached from `HRZ_S2S_TOKEN`, and the verified
+adapter construction), a bearer credential is attached from `S2S_TOKEN`, and the verified
 end-user actor is propagated as an HMAC-signed `X-Tf-Actor` / `X-Tf-Actor-Sig` pair (keyed by
-`HRZ_S2S_SIGNING_KEY`) rather than a trust-me JSON field. All six platform delegates
+`S2S_SIGNING_KEY`) rather than a trust-me JSON field. All six platform delegates
 (`remote_audit`, `remote_guardrail`, `remote_entitlements`, `remote_registry`, `remote_rules`,
 `remote_evaluation`) validate their base URL at construction. The receiving platform services
 own verification.
@@ -63,7 +63,7 @@ the class without constructing it (`ports/identity.py`, `config.end_user_auth_ki
 from the profile string and never from a service credential. That matters here: `config/settings.yaml`
 binds the same seeded-persona adapter under `live` as under `local`, so a rule keyed on the
 profile name would have read `live` as a production posture and served dev personas to the LAN.
-`HRZ_S2S_TOKEN` authenticates a calling service and no end user, so it cannot stand the guard
+`S2S_TOKEN` authenticates a calling service and no end user, so it cannot stand the guard
 down either.
 
 CORS never uses `*`: origins come from an explicit `TRADE_FINANCE_CORS_ORIGINS` allowlist
@@ -121,7 +121,7 @@ SHA-pinned; `.github/dependabot.yml` proposes bumps; and a CI `supply-chain` job
 
 No secret values are in the repo. `config/settings.yaml` stores only `${ENV_VAR:-default}`
 interpolation names and non-secret values (region, retention, model ids); the S2S credentials
-are read from env at construction (`HRZ_S2S_TOKEN`, `HRZ_S2S_SIGNING_KEY`) and never logged. A
+are read from env at construction (`S2S_TOKEN`, `S2S_SIGNING_KEY`) and never logged. A
 literal-secret grep is clean. The bundled UCP600 rules snapshot and every fixture are
 obviously-fictional.
 

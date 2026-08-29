@@ -51,7 +51,7 @@ still `aiplatform.googleapis.com`.
 | Triage model | Gemini 3.1 Flash-Lite | `gemini-3.1-flash-lite` |
 | Unified SDK | Google GenAI SDK | `google-genai` |
 | Document extraction | Document AI | `google-cloud-documentai`; regional processor |
-| UCP600 rule set | Hrz2 Enterprise KB (File Search) | `POST /v1/search` (`HRZ_KB_URL`) |
+| UCP600 rule set | Hrz2 Enterprise KB (File Search) | `POST /v1/search` (`KNOWLEDGE_BASE_URL`) |
 | Runtime | Agent Runtime (ex-Agent Engine) | `google-cloud-aiplatform[agent_engines,adk]`; `reasoningEngine` |
 | Sessions / Memory | Agent Platform Sessions / Memory Bank | ADK `VertexAiSessionService` / `VertexAiMemoryBankService` |
 | Guardrail | Model Armor | `modelarmor.asia-southeast1.rep.googleapis.com` `:sanitizeUserPrompt`/`:sanitizeModelResponse` |
@@ -180,18 +180,18 @@ Skills advertised on the AgentCard: `check_presentation`, `detect_discrepancies`
 
 All JSON field names mirror the domain dataclasses; enums are strings.
 
-**Hrz1 `agent-guardrail-gateway`** (env `HRZ_GUARDRAIL_URL`, default `:8080`)
+**Hrz1 `agent-guardrail-gateway`** (env `GUARDRAIL_GATEWAY_URL`, default `:8080`)
 * `POST /v1/guardrail/screen` `{ text, direction }` to `{ allowed, direction, findings[],
   sanitized_text, reason }`
 
-**Hrz2 `enterprise-knowledge-base`** (env `HRZ_KB_URL`, default `:8082`)
+**Hrz2 `enterprise-knowledge-base`** (env `KNOWLEDGE_BASE_URL`, default `:8082`)
 * `POST /v1/search` `{ query, top_k, acl_principals[], filters }` to `{ passages:[{ text,
   citation:{article|source_id, title, url}, score }] }` : the governed UCP600 articles.
 
-**Hrz3 `agent-registry`** (env `HRZ_REGISTRY_URL`, default `:8083`)
+**Hrz3 `agent-registry`** (env `AGENT_REGISTRY_URL`, default `:8083`)
 * `POST /v1/agents` `{AgentCard}` to 201; `GET /v1/agents/{name}`; `GET /v1/agents`.
 
-**Hrz4 `model-quality-gate`** (env `HRZ_QUALITY_URL`, default `:8084`)
+**Hrz4 `model-quality-gate`** (env `QUALITY_GATE_URL`, default `:8084`)
 * `POST /v1/evaluations` `{ target:{ model, prompt_version, dataset_id, system }, dataset_id,
   bundle:"doc4-trade-finance" }` to `{ results:[{ metric, score, threshold, passed }], n }`.
   The metric set is chosen by the registered `bundle` name : Doc4 never sends metric names on
@@ -200,7 +200,7 @@ All JSON field names mirror the domain dataclasses; enums are strings.
   `EvalReport`.
 * `POST /v1/gate` (same body) to `{ passed }` : the promotion pass/fail decision.
 
-**Hrz5 `agent-observability`** (env `HRZ_OBSERVABILITY_URL`, default `:8085`)
+**Hrz5 `agent-observability`** (env `OBSERVABILITY_URL`, default `:8085`)
 * `POST /v1/audit` `{AuditEvent}` to 202.
 
 ## 7. Coding standards

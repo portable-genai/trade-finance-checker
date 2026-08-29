@@ -116,7 +116,7 @@ def _gate_body(*, passed: bool, results: list[dict], attested: bool = True) -> d
 
 @pytest.fixture
 def adapter(monkeypatch: pytest.MonkeyPatch) -> RemoteEvaluationAdapter:
-    monkeypatch.setenv("HRZ_QUALITY_URL", _BASE_URL)
+    monkeypatch.setenv("QUALITY_GATE_URL", _BASE_URL)
     return RemoteEvaluationAdapter(Settings(profile="platform"))
 
 
