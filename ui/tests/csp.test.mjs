@@ -51,6 +51,9 @@ const REQUIRED = [
   "frame-ancestors",
 ];
 
+/** The environment a `next build` / `next start` deployment runs under. */
+const PROD = { NODE_ENV: "production" };
+
 test("the policy carries every directive that makes it default-deny", () => {
   const parsed = directives(contentSecurityPolicy({}, "n0nce"));
   for (const name of REQUIRED) {
@@ -73,11 +76,39 @@ test("no directive is ever empty, in any framing state", () => {
 
 test("script-src takes the nonce and strict-dynamic ONLY when a nonce is supplied", () => {
   assert.equal(
-    directives(contentSecurityPolicy({}, "abc123"))["script-src"],
+    directives(contentSecurityPolicy(PROD, "abc123"))["script-src"],
     "'self' 'nonce-abc123' 'strict-dynamic'",
   );
   // No nonce means no document to hydrate, so no inline allowance either.
-  assert.equal(directives(contentSecurityPolicy({}))["script-src"], "'self'");
+  assert.equal(directives(contentSecurityPolicy(PROD))["script-src"], "'self'");
+});
+
+test("the dev server gets eval and a websocket, and a production build never does", () => {
+  // `npm run dev` compiles with `eval` and talks to Turbopack's HMR endpoint over a websocket.
+  // Without these two relaxations the dev-served console renders completely and never hydrates,
+  // which is exactly the failure `org-metadata/docs/demos/demo-inventory.md` records. The
+  // relaxations must therefore EXIST in development and must NEVER exist in a production build,
+  // so both halves are pinned here: dropping either branch turns one of these assertions red.
+  const dev = directives(contentSecurityPolicy({ NODE_ENV: "development" }, "abc123"));
+  assert.match(dev["script-src"], /'unsafe-eval'/);
+  assert.match(dev["connect-src"], /\bws: wss:/);
+
+  const prod = contentSecurityPolicy(PROD, "abc123");
+  assert.doesNotMatch(prod, /unsafe-eval/);
+  assert.doesNotMatch(prod, /\bws:/);
+  assert.doesNotMatch(prod, /\bwss:/);
+});
+
+test("the production policy is byte-identical to the one that shipped before the dev branch", () => {
+  // The dev branch is only safe if it is invisible to a deployment. This pins the whole
+  // production string, so a relaxation leaking out of the `isDev` guard cannot pass review.
+  assert.equal(
+    contentSecurityPolicy(PROD, "abc123"),
+    "default-src 'self'; base-uri 'self'; form-action 'self'; object-src 'none'; " +
+      "script-src 'self' 'nonce-abc123' 'strict-dynamic'; style-src 'self' 'unsafe-inline'; " +
+      `img-src 'self' data:; font-src 'self' data:; connect-src 'self' ${DEFAULT_API_BASE}; ` +
+      "frame-ancestors 'self'",
+  );
 });
 
 test("frame-ancestors is three-state, mirroring the backend's own resolution", () => {
@@ -111,7 +142,7 @@ test("X-Frame-Options is emitted only for the two policies it can express", () =
 
 test("connect-src widens to the API ORIGIN, never the full URL", () => {
   const parsed = directives(
-    contentSecurityPolicy({ NEXT_PUBLIC_API_BASE: "https://api.client.example/v1/check?x=1" }),
+    contentSecurityPolicy({ ...PROD, NEXT_PUBLIC_API_BASE: "https://api.client.example/v1/check?x=1" }),
   );
   assert.equal(parsed["connect-src"], "'self' https://api.client.example");
 });
@@ -124,7 +155,7 @@ test("connect-src default agrees with the client's own default base URL", () => 
     api.includes(DEFAULT_API_BASE),
     `lib/api.ts no longer mentions ${DEFAULT_API_BASE}; update DEFAULT_API_BASE in lib/csp.mjs`,
   );
-  assert.equal(directives(contentSecurityPolicy({}))["connect-src"], `'self' ${DEFAULT_API_BASE}`);
+  assert.equal(directives(contentSecurityPolicy(PROD))["connect-src"], `'self' ${DEFAULT_API_BASE}`);
 });
 
 test("a rooted API base stays same-origin rather than being refused", () => {
@@ -132,7 +163,9 @@ test("a rooted API base stays same-origin rather than being refused", () => {
   // already covered by 'self', so it widens nothing, and refusing it answered 500 on a working
   // deployment. What must never happen is the value being dropped while it names a real origin,
   // which is the case below.
-  const parsed = directives(contentSecurityPolicy({ NEXT_PUBLIC_API_BASE: "/apps/doc4/api" }));
+  const parsed = directives(
+    contentSecurityPolicy({ ...PROD, NEXT_PUBLIC_API_BASE: "/apps/doc4/api" }),
+  );
   assert.equal(parsed["connect-src"], "'self'");
 });
 
