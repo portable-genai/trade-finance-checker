@@ -10,7 +10,7 @@ import "./globals.css";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "B4 Trade-Finance Document Checker",
+  title: "Trade-Finance Document Checker",
   description:
     "Detect discrepancies in a documentary-credit presentation against the LC terms and UCP600 (Transaction Banking).",
 };
@@ -30,7 +30,7 @@ export default function RootLayout({ children }: { children: ReactNode }) {
             <header className="border-b border-ink-200 bg-white">
               <div className="mx-auto max-w-5xl px-6 py-4">
                 <h1 className="text-lg font-semibold text-ink-900">
-                  B4 · Trade-Finance Document Checker
+                  Trade-Finance Document Checker
                 </h1>
                 <p className="text-sm text-ink-500">
                   Documentary-credit discrepancy checks · region asia-southeast1 · synthetic
