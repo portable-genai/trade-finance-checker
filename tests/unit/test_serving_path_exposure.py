@@ -19,7 +19,7 @@ change). A guard written as ``profile == "local"`` would have left ``live`` serv
 trade-analyst and trade-approver personas to the LAN, and it would pass every other cell in
 this file. ``test_a_profile_string_rule_would_have_missed_live`` is that mutant, executed.
 
-The guard is likewise not derived from a service credential: ``HRZ_S2S_TOKEN`` authenticates a
+The guard is likewise not derived from a service credential: ``S2S_TOKEN`` authenticates a
 calling SERVICE and no end user, so it is no evidence that ``/v1/personas`` is protected. The
 scanner at the bottom fails the build if one reappears in the derivation.
 
@@ -73,7 +73,7 @@ _ENV = (
     "TRADE_FINANCE_ALLOW_INSECURE_DEMO",
     "TRADE_FINANCE_IAP_AUDIENCE",
     "TRADE_FINANCE_API_HOST",
-    "HRZ_S2S_TOKEN",
+    "S2S_TOKEN",
 )
 
 #: Every route that answers without a credential, including the two that need no identity at
@@ -151,18 +151,18 @@ def _settings_for(profile: str, identity: dict[str, str] | None = None) -> Setti
         # not unbound the end-user routes.
         (
             "local chosen, S2S token SET",
-            {"TRADE_FINANCE_PROFILE": "local", "HRZ_S2S_TOKEN": "s3cret"},
+            {"TRADE_FINANCE_PROFILE": "local", "S2S_TOKEN": "s3cret"},
         ),
         # `live` binds the SAME seeded-persona adapter while reading as a non-local profile
         # string. This is the cell a `profile == "local"` rule would fail.
         ("live (seeded personas)", {"TRADE_FINANCE_PROFILE": "live"}),
         (
             "live (seeded personas), token SET",
-            {"TRADE_FINANCE_PROFILE": "live", "HRZ_S2S_TOKEN": "s3cret"},
+            {"TRADE_FINANCE_PROFILE": "live", "S2S_TOKEN": "s3cret"},
         ),
         # Unset is not consent: no profile means no identity scheme was chosen at all.
         ("profile UNSET", {}),
-        ("profile UNSET, token SET", {"HRZ_S2S_TOKEN": "s3cret"}),
+        ("profile UNSET, token SET", {"S2S_TOKEN": "s3cret"}),
         # The on-premises placeholder resolves nobody until a client binds their own IdP.
         ("onprem placeholder binding", {"TRADE_FINANCE_PROFILE": "onprem"}),
     ],
@@ -381,7 +381,7 @@ def test_a_verifying_binding_stands_the_guard_down(monkeypatch: pytest.MonkeyPat
         monkeypatch,
         TRADE_FINANCE_PROFILE="gcp",
         TRADE_FINANCE_IAP_AUDIENCE="/projects/000/global/backendServices/000",
-        HRZ_S2S_TOKEN="s3cret",
+        S2S_TOKEN="s3cret",
     )
     assert _status(app, "/healthz", LAN_PEER) == 200
 
@@ -520,7 +520,7 @@ def test_the_exposure_guard_is_derived_from_the_identity_binding() -> None:
 #: The defect shape a credential-derived posture would have, one indirection deep. A scanner
 #: nobody proved can find anything is a green tick over an empty set.
 _MUTANT = (
-    "_TOKEN_ENV = 'HRZ_S2S_TOKEN'\n"
+    "_TOKEN_ENV = 'S2S_TOKEN'\n"
     "_END_USER_AUTHENTICATED = not read_env_setting(_TOKEN_ENV).is_unset\n"
     "add_loopback_exposure_guard(\n"
     "    app,\n"

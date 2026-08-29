@@ -6,7 +6,7 @@ POSTing to A2's ``POST /v1/search`` endpoint (File Search over the UCP600 articl
 mapping each returned passage into a domain :class:`Ucp600Rule`.
 
 The adapter follows the B4 construction convention ``__init__(self, settings)`` and reads
-its base URL from ``HRZ_KB_URL`` (localhost default), so nothing GCP-specific is required
+its base URL from ``KNOWLEDGE_BASE_URL`` (localhost default), so nothing GCP-specific is required
 to construct or exercise it. The ``acl_principals`` and collection come from settings so
 retrieval respects the KB's access controls.
 """
@@ -36,7 +36,7 @@ class RemoteRulesAdapter:
         self._settings = settings
         self._kb = settings.rules_kb
         self._base_url = _s2s.validate_base_url(
-            setting_or_default("HRZ_KB_URL", _DEFAULT_URL), service="rules knowledge base"
+            setting_or_default("KNOWLEDGE_BASE_URL", _DEFAULT_URL), service="rules knowledge base"
         )
 
     def retrieve_rules(self, query: str, top_k: int = 8) -> list[Ucp600Rule]:

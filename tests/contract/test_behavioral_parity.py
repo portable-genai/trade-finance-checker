@@ -56,9 +56,9 @@ CONFIG_PATH = "config/settings.yaml"
 
 # The platform clients' localhost defaults (SPEC contract): mocked, never actually served.
 # These MUST match the ``_DEFAULT_URL`` / env-var defaults hard-coded in the remote_* adapters.
-HRZ_KB = "http://localhost:8082"  # remote_rules (HRZ_KB_URL)
-HRZ_GUARDRAIL = "http://localhost:8080"  # remote_guardrail (HRZ_GUARDRAIL_URL)
-HRZ_OBSERVABILITY = "http://localhost:8085"  # remote_audit (HRZ_OBSERVABILITY_URL)
+KNOWLEDGE_BASE = "http://localhost:8082"  # remote_rules (KNOWLEDGE_BASE_URL)
+GUARDRAIL_GATEWAY = "http://localhost:8080"  # remote_guardrail (GUARDRAIL_GATEWAY_URL)
+OBSERVABILITY = "http://localhost:8085"  # remote_audit (OBSERVABILITY_URL)
 
 # A benign examiner query and an obvious prompt-injection string (fictional).
 RULES_QUERY = "UCP600 examination rules for a documentary credit invoice and bill of lading"
@@ -110,7 +110,7 @@ def test_rules_parity_same_articles_across_implementations():
     }
 
     with respx.mock:
-        respx.post(f"{HRZ_KB}/v1/search").respond(200, json=search_body)
+        respx.post(f"{KNOWLEDGE_BASE}/v1/search").respond(200, json=search_body)
         platform_rules = _adapter("rules", "platform").retrieve_rules(RULES_QUERY, top_k=8)
 
     # Not merely the same shape: the same first-class domain objects either way.
@@ -141,7 +141,7 @@ def test_guardrail_parity_same_verdict_every_implementation(text: str, should_al
 
     with respx.mock:
         # A1 returns the same verdict (Model Armor + DLP backed) for the same request.
-        respx.post(f"{HRZ_GUARDRAIL}/v1/guardrail/screen").respond(
+        respx.post(f"{GUARDRAIL_GATEWAY}/v1/guardrail/screen").respond(
             200, json=to_jsonable(local_verdict)
         )
         platform_verdict = _adapter("guardrail", "platform").screen(text, Direction.INPUT)
@@ -191,7 +191,7 @@ def test_audit_parity_identical_payload_at_every_sink():
 
     # platform sink (A5 observability): the POSTed body is byte-identical to what local stored.
     with respx.mock:
-        route = respx.post(f"{HRZ_OBSERVABILITY}/v1/audit").respond(202)
+        route = respx.post(f"{OBSERVABILITY}/v1/audit").respond(202)
         _adapter("audit", "platform").record(event)
         posted = json.loads(route.calls.last.request.content)
     assert posted == expected, "platform sink received a different record than local stored"

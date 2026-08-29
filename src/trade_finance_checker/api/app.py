@@ -232,7 +232,7 @@ async def _security_headers(request: Request, call_next: Any) -> Any:
 #      rule keyed on the profile string would have missed: `live` reads like a production
 #      profile and authenticates nobody here.
 #
-# Note what is NOT in this expression: any service credential. HRZ_S2S_TOKEN and its kin are
+# Note what is NOT in this expression: any service credential. S2S_TOKEN and its kin are
 # evidence about a calling SERVICE and say nothing about the end-user routes, so setting one
 # must not, and cannot, disable their bound.
 _END_USER_AUTHENTICATED = deps.get_settings().profile_explicit and (

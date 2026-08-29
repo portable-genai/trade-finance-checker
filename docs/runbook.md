@@ -53,8 +53,8 @@ gcloud auth application-default login
 make run-api        # FastAPI on :8094
 ```
 
-For the `platform` profile, also set `HRZ_GUARDRAIL_URL`, `HRZ_KB_URL`, `HRZ_REGISTRY_URL`,
-`HRZ_QUALITY_URL`, `HRZ_OBSERVABILITY_URL` to the Hrz1 to Hrz5 service endpoints.
+For the `platform` profile, also set `GUARDRAIL_GATEWAY_URL`, `KNOWLEDGE_BASE_URL`, `AGENT_REGISTRY_URL`,
+`QUALITY_GATE_URL`, `OBSERVABILITY_URL` to the Hrz1 to Hrz5 service endpoints.
 
 ## 4. Seed the governed UCP600 rule set (Hrz2)
 

@@ -134,7 +134,7 @@ sequence diagram, and the runtime topology.
 | Triage model | Gemini 3.1 Flash-Lite | `gemini-3.1-flash-lite` |
 | Unified SDK | Google GenAI SDK | `google-genai` |
 | Document extraction | **Document AI** | `google-cloud-documentai` (regional processor) |
-| UCP600 rule set | **Hrz2 Enterprise KB** (File Search) | `POST /v1/search` (`HRZ_KB_URL`) |
+| UCP600 rule set | **Hrz2 Enterprise KB** (File Search) | `POST /v1/search` (`KNOWLEDGE_BASE_URL`) |
 | Runtime | **Agent Runtime** (ex-Agent Engine) | `google-cloud-aiplatform[agent_engines,adk]`; `reasoningEngine` |
 | Sessions / Memory | Agent Platform Sessions / Memory Bank | ADK `VertexAiSessionService` / `VertexAiMemoryBankService` |
 | Guardrail | Model Armor | `modelarmor.asia-southeast1.rep.googleapis.com` `:sanitizeUserPrompt` / `:sanitizeModelResponse` |
