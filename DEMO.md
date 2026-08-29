@@ -138,8 +138,14 @@ product surface, not the demo server):
 
 ```bash
 make run-api PROFILE=local        # FastAPI on :8094, profile=local
-make run-ui                       # Next.js console on http://localhost:3000
+cd ui && npm install && npm run build && npm run start
+# -> production console on http://localhost:3000
 ```
+
+Present from the BUILT console, never the dev server. `next dev` compiles with `eval` and
+opens an HMR websocket, so it needs CSP relaxations a deployment must never carry; those
+are emitted only outside `NODE_ENV=production` (see [`ui/lib/csp.mjs`](ui/lib/csp.mjs)).
+`make run-ui` remains the developer loop, and it now hydrates, but a demo runs what ships.
 
 The console (port 3000) reads `NEXT_PUBLIC_API_BASE` (default `http://localhost:8094`),
 POSTs the pasted presentation to `/v1/check`, and renders the cited DiscrepancyReport. The
@@ -243,7 +249,7 @@ curl -s localhost:8094/healthz
 Or the browser console (talks to the API on :8094) - see [`ui/README.md`](ui/README.md):
 
 ```bash
-make run-ui           # http://localhost:3000
+cd ui && npm install && npm run build && npm run start   # http://localhost:3000
 ```
 
 **What to highlight:** the verdict and every discrepancy carry a source citation (the LC
@@ -287,7 +293,7 @@ invent, suppress, or override a finding; everything stays in `asia-southeast1` w
 | CLI exits with code 2 | You're on `TRADE_FINANCE_PROFILE=onprem` (fail-fast). Use `local` (Demo A) or `gcp` (Demo B). |
 | GCP deploy/region/VPC-SC errors | See [`docs/runbook.md`](docs/runbook.md). |
 
-**Stop / clean up:** Ctrl-C the demo server, `make run-api`, and `make run-ui`. For GCP,
+**Stop / clean up:** Ctrl-C the demo server, `make run-api`, and the console. For GCP,
 scale the deployment to zero or remove the app SA's model permission - the audit trail
 remains intact ([runbook 8 Kill switch](docs/runbook.md#8-kill-switch)). `make clean`
 removes local caches; `rm -rf demo-out trade_finance_demo.json` removes demo artefacts.
