@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import type { ReactNode } from "react";
+
+import { ProvenanceBanner } from "../components/ProvenanceBanner";
 import "./globals.css";
 
 // REQUIRED by the nonce CSP, and not a performance preference. `proxy.ts` mints a per-request
@@ -20,9 +22,16 @@ export default function RootLayout({ children }: { children: ReactNode }) {
   // children bare so the checker drops cleanly into an existing app (same-origin iframe or
   // micro-frontend). Standalone keeps the full header.
   const embed = process.env.NEXT_PUBLIC_EMBED === "1";
+  // The banner renders in BOTH modes, and embedded is the mode that needs it most: a panel
+  // inside somebody else's portal is where a viewer has least context about where the answer
+  // came from. It is mounted in the LAYOUT rather than in a page because "at the top of every
+  // page" is a property of the console, and a page that forgot it would be the one page a
+  // screenshot came from. This checker is the one tree that KEPT its local model, so the
+  // banner is the only place a viewer learns that its answer came from Gemma, not Gemini.
   return (
     <html lang="en">
       <body className="min-h-screen">
+        <ProvenanceBanner />
         {embed ? (
           <main className="p-4">{children}</main>
         ) : (
