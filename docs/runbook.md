@@ -53,8 +53,12 @@ gcloud auth application-default login
 make run-api        # FastAPI on :8094
 ```
 
-For the `platform` profile, also set `GUARDRAIL_GATEWAY_URL`, `KNOWLEDGE_BASE_URL`, `AGENT_REGISTRY_URL`,
-`QUALITY_GATE_URL`, `OBSERVABILITY_URL` to the Hrz1 to Hrz5 service endpoints.
+Both live profiles route R8 reviews to Hrz7: set `HUMAN_REVIEW_URL` (plus the shared
+`S2S_TOKEN` / `S2S_SIGNING_KEY` pair the platform delegates use), or every escalation skips
+the console (the routing is best-effort; the WORM audit record stays the escalation of
+record). For the `platform` profile, also set `GUARDRAIL_GATEWAY_URL`, `KNOWLEDGE_BASE_URL`,
+`QUALITY_GATE_URL`, `OBSERVABILITY_URL` to the Hrz1/Hrz2/Hrz4/Hrz5 service endpoints, and
+`AGENT_REGISTRY_URL` only if the deployment publishes the agent card to Hrz3.
 
 ## 4. Seed the governed UCP600 rule set (Hrz2)
 

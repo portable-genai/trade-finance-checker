@@ -22,9 +22,10 @@ produces three cited artifacts:
 
 Catalog identity: **Doc4**, group **`doc`** (document automation), priority **P2**, buyer
 **Transaction Banking**. Mandatory platform dependencies: **Hrz1** Guardrail Gateway, **Hrz2**
-Enterprise KB (governed UCP600 rule set), **Hrz3** Registry, **Hrz4** AI Quality (eval gate),
-**Hrz5** Observability/Audit. Doc4 handles trade-party PII, so rule **R1** applies (the full Hrz1
-pipeline). Maker-checker (P-06) is mandatory: the officer decides.
+Enterprise KB (governed UCP600 rule set), **Hrz4** AI Quality (eval gate), **Hrz5**
+Observability/Audit, **Hrz7** Human-Review Console (R8 review routing). Doc4 handles
+trade-party PII, so rule **R1** applies (the full Hrz1 pipeline). Maker-checker (P-06) is
+mandatory: every report routes to the Hrz7 console (R8) and the officer decides.
 
 ## 2. Locked decisions
 
@@ -78,7 +79,8 @@ gives none, which is why Document AI's deviation is to the `us` multi-region and
   * `adapters/local/*` : a WORKING offline stack (for `profile: local`), SDK-free and
     deterministic, that runs the whole pipeline with no Google Cloud, no API key, and no
     running emulators by default. See the profile table below.
-  * `adapters/platform/*` : thin HTTP clients to Hrz1 to Hrz5 (for `profile: platform`).
+  * `adapters/platform/*` : thin HTTP clients to the Hrz platform services (for
+    `profile: platform`).
   * `adapters/onprem/*` : placeholder stubs that raise `NotImplementedError("...on-prem
     migration target...")` from every method but **construct cleanly** and **satisfy the
     Protocol**. No third-party product named.
@@ -91,7 +93,7 @@ gives none, which is why Document AI's deviation is to the `us` multi-region and
 |---------|---------|------|
 | `gcp` | Managed Google Cloud services (lazy SDK imports). | Production default. |
 | `local` | A WORKING offline laptop stack, SDK-free and deterministic. | Dev / test default. |
-| `platform` | Thin HTTP clients to the Hrz1 to Hrz5 sibling services. | Inside the full platform. |
+| `platform` | Thin HTTP clients to the Hrz sibling services. | Inside the full platform. |
 | `onprem` | Fail-fast placeholders (NotImplementedError); the Google Distributed Cloud exit. | Migration target. |
 
 The `local` backends, per port: rules retrieval (UCP600) to **SQLite FTS5** (BM25 ranked,
@@ -203,6 +205,12 @@ All JSON field names mirror the domain dataclasses; enums are strings.
 **Hrz5 `agent-observability`** (env `OBSERVABILITY_URL`, default `:8085`)
 * `POST /v1/audit` `{AuditEvent}` to 202.
 
+**Hrz7 `human-review-console`** (env `HUMAN_REVIEW_URL` : required, no default)
+* `POST /v1/service/reviews` `{Review}` : the escalated `DiscrepancyReport`, submitted through
+  the shared `review-kit` client (S2S headers from `S2S_TOKEN` / `S2S_SIGNING_KEY`,
+  redact-before-wire) whenever `requires_human_review` is set (rule R8). Best-effort at the
+  call site: a console outage never fails an already-audited report.
+
 ## 7. Coding standards
 
 * Python 3.12, `from __future__ import annotations`, full type hints, ruff-clean.
@@ -212,4 +220,4 @@ All JSON field names mirror the domain dataclasses; enums are strings.
   tests assert interface parity for both `local` and `onprem`; unit tests drive the domain
   service through the seeded `local` adapters).
 * Each compliance control in `COMPLIANCE.md` maps to General Principles P-01..P-12 and
-  dependency rules R1..R6.
+  dependency rules R1..R6, R8.
