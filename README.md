@@ -33,11 +33,11 @@ the presented document and page):
 | 2 | **Discrepancy[]**: each finding (UCP600 article, document type, field, expected per LC/UCP600, found, severity, citations) | `tuple[Discrepancy, ...]` | `DiscrepancyDetector.detect()` |
 | 3 | **PresentationSummary**: the parsed LC terms + the documents checked, for traceability | `PresentationSummary` | `TradeCheckService.check()` |
 
-Catalog identity: **Doc4**, group **`doc`** (document automation), priority **P1**, buyer
+Catalog identity: **Doc4**, group **`doc`** (document automation), priority **P2**, buyer
 **Transaction Banking**. Mandatory platform dependencies: **Hrz1** Guardrail Gateway, **Hrz2**
-Enterprise KB (the governed UCP600 rule set), **Hrz3** Registry, **Hrz4** AI Quality (eval gate
-at promotion), **Hrz5** Observability/Audit. Each dependency is a separate repo; see
-[§9 Platform dependencies](#9-platform-dependencies).
+Enterprise KB (the governed UCP600 rule set), **Hrz4** AI Quality (eval gate at promotion),
+**Hrz5** Observability/Audit, **Hrz7** Human-Review Console (R8 review routing). Each
+dependency is a separate repo; see [§9 Platform dependencies](#9-platform-dependencies).
 
 The **verdict and the discrepancy set are computed by deterministic, pure-domain code**
 ([`detector.py`](src/trade_finance_checker/domain/detector.py)); the LLM only drafts the
@@ -90,8 +90,8 @@ flowchart TB
     subgraph loc["adapters/local/*: WORKING offline stack (SDK-free)"]
         LO["SQLite FTS5 over UCP600 · deterministic LLM ·<br/>heuristic guardrail · regex DLP · local doc parser ·<br/>append-only audit · no-op tracer · in-process stores"]
     end
-    subgraph plat["adapters/platform/*: Hrz1-Hrz5 HTTP clients"]
-        PL["Remote Rules (Hrz2) · Remote Guardrail (Hrz1) ·<br/>Remote Audit (Hrz5) · Remote Registry (Hrz3) ·<br/>Remote Evaluation (Hrz4)"]
+    subgraph plat["adapters/platform/*: sibling-service HTTP clients"]
+        PL["Remote Rules (Hrz2) · Remote Guardrail (Hrz1) ·<br/>Remote Audit (Hrz5) · Remote Registry (Hrz3) ·<br/>Remote Evaluation (Hrz4) · Review Router (Hrz7)"]
     end
     subgraph onp["adapters/onprem/*: placeholder stubs"]
         ON["NotImplementedError stubs that satisfy<br/>the same Protocols (P-02 / P-12 exit story)"]
@@ -114,7 +114,7 @@ flowchart TB
   `@runtime_checkable` so contract tests can assert any adapter satisfies it.
 - **Driven (outbound) adapters**: `gcp` (primary, real SDK calls), `local` (a WORKING
   offline stack: SQLite FTS5, deterministic LLM, no cloud, no API key), `platform` (thin
-  HTTP clients to Hrz1 to Hrz5), `onprem` (placeholder stubs).
+  HTTP clients to the Hrz platform services), `onprem` (placeholder stubs).
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) for the full 13-port table, the check-pipeline
 sequence diagram, and the runtime topology.
@@ -332,24 +332,31 @@ See [`COMPLIANCE.md`](COMPLIANCE.md) for how this maps to the model-risk rule (R
 | **Deterministic verdict** | The verdict and discrepancies are pure-domain; the LLM cannot override a finding. |
 | **Exit / portability** (**P-12**) | `adapters/onprem/*` placeholders + [`docs/onprem-migration.md`](docs/onprem-migration.md) document the migration to Google Distributed Cloud with zero domain changes. |
 
-The complete mapping of every General Principle (P-01..P-12) and dependency rule (R1..R6) to
-a concrete file/resource is in [`COMPLIANCE.md`](COMPLIANCE.md).
+The complete mapping of every General Principle (P-01..P-12) and dependency rule (R1..R6, R8)
+to a concrete file/resource is in [`COMPLIANCE.md`](COMPLIANCE.md).
 
 ---
 
 ## 9. Platform dependencies
 
 Doc4 depends on five sibling platform services. When deployed standalone, the `gcp` adapters
-call Document AI / Model Armor / DLP / Cloud Logging directly; when deployed inside the full
-platform, the `platform` adapters delegate over HTTP (contracts in [`SPEC.md`](SPEC.md) §6).
+call Document AI / Model Armor / DLP / Cloud Logging directly (UCP600 retrieval and R8 review
+routing still reach Hrz2 and Hrz7 over HTTP); when deployed inside the full platform, the
+`platform` adapters delegate over HTTP (contracts in [`SPEC.md`](SPEC.md) §6).
 
 | Dep | Repo | Doc4 ports it backs | `platform` adapter |
 |-----|------|-------------------|--------------------|
 | **Hrz1** Guardrail Gateway | `agent-guardrail-gateway` | `GuardrailPort`, `PIIRedactionPort` | `RemoteGuardrailAdapter` |
 | **Hrz2** Enterprise KB | `enterprise-knowledge-base` | `RulesRetrievalPort` | `RemoteRulesAdapter` |
-| **Hrz3** Registry | `agent-registry` | `AgentRegistryPort` | `RemoteRegistryAdapter` |
 | **Hrz4** AI Quality | `model-quality-gate` | `EvaluationGatePort` | `RemoteEvaluationAdapter` |
 | **Hrz5** Observability/Audit | `agent-observability` | `AuditSinkPort` | `RemoteAuditAdapter` |
+| **Hrz7** Human-Review Console | `human-review-console` | `ReviewRouterPort` | `PlatformReviewRouter` |
+
+Doc4 also ships an Hrz3 `agent-registry` client (`AgentRegistryPort` bound to
+`RemoteRegistryAdapter`, rule R4) so a platform deployment can publish and resolve its A2A
+card centrally; no runtime path calls it and the card is self-served at
+`/.well-known/agent-card.json`, which is why the catalog does not list Hrz3 among Doc4's
+mandatory dependencies.
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) §6 for the dependency relationship in detail.
 
@@ -366,7 +373,7 @@ flowchart LR
     adapters["adapters/"]
     gcp["gcp/<br/>primary managed-service adapters (lazy GCP SDK imports)"]
     local["local/<br/>WORKING offline stack: SQLite FTS5, deterministic LLM (SDK-free)"]
-    platform["platform/<br/>thin HTTP clients to Hrz1-Hrz5"]
+    platform["platform/<br/>thin HTTP clients to the Hrz platform services"]
     onprem["onprem/<br/>NotImplementedError placeholder stubs (P-02 / P-12)"]
     agent["agent/<br/>ADK agent + A2A/MCP server wiring"]
     api["api/<br/>FastAPI service"]
@@ -408,7 +415,7 @@ flowchart LR
 ## 11. Documentation map
 
 - [`SPEC.md`](SPEC.md): the authoritative build specification (locked decisions, pinned
-  stack, adapter convention, pipeline, Hrz1 to Hrz5 HTTP contracts).
+  stack, adapter convention, pipeline, the Hrz platform-service HTTP contracts).
 - [`ARCHITECTURE.md`](ARCHITECTURE.md): the 13-port table, check-pipeline sequence, runtime
   topology, and platform dependencies.
 - [`COMPLIANCE.md`](COMPLIANCE.md): every General Principle and dependency rule mapped to a

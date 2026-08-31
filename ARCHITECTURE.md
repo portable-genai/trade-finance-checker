@@ -2,7 +2,7 @@
 
 This document goes deeper than the [README](README.md): the complete port to adapter table,
 the check pipeline as a sequence diagram, the runtime topology on Agent Runtime, and the
-relationship to the Hrz1 to Hrz5 platform dependencies.
+relationship to the Hrz platform dependencies.
 
 The contract layer is authoritative : see [`SPEC.md`](SPEC.md). This file describes how the
 pieces fit together; it does not redefine them.
@@ -225,10 +225,10 @@ flowchart LR
 
 ---
 
-## 6. Dependency relationship to the platform (Hrz1 to Hrz5)
+## 6. Dependency relationship to the platform (Hrz1 to Hrz7)
 
 Doc4 (catalog **Doc4**, group `doc`) is a leaf application that depends on five platform
-services. The dependency rules **R1..R6** (see [`COMPLIANCE.md`](COMPLIANCE.md)) require that
+services. The dependency rules **R1..R6, R8** (see [`COMPLIANCE.md`](COMPLIANCE.md)) require that
 those concerns are *not* re-implemented in Doc4 but consumed from the platform. Doc4 satisfies
 this two ways without changing the domain:
 
@@ -240,9 +240,9 @@ flowchart LR
         RULP[RulesRetrievalPort]
         GUARD[GuardrailPort / PIIRedactionPort]
         AUDIT[AuditSinkPort]
-        REGP[AgentRegistryPort]
+        REVP[ReviewRouterPort]
         EVAP[EvaluationGatePort]
-        DOMAIN --> EXTP & RULP & GUARD & AUDIT & REGP & EVAP
+        DOMAIN --> EXTP & RULP & GUARD & AUDIT & REVP & EVAP
     end
 
     subgraph standalone["profile = gcp (standalone)"]
@@ -255,7 +255,7 @@ flowchart LR
     subgraph platform["profile = platform (inside the platform)"]
         Hrz1[Hrz1 guardrail gateway]
         Hrz2[Hrz2 enterprise KB]
-        Hrz3[Hrz3 registry]
+        Hrz7[Hrz7 human review]
         Hrz4[Hrz4 AI quality]
         Hrz5[Hrz5 observability]
     end
@@ -267,7 +267,7 @@ flowchart LR
     RULP -- both --> Hrz2
     GUARD -- platform --> Hrz1
     AUDIT -- platform --> Hrz5
-    REGP -- platform --> Hrz3
+    REVP -- both --> Hrz7
     EVAP -- platform --> Hrz4
 ```
 
@@ -275,13 +275,17 @@ flowchart LR
 |------------|------|----------------|-------------------------|
 | **Hrz1** Guardrail Gateway | `agent-guardrail-gateway` | `GuardrailPort`, `PIIRedactionPort` | `POST /v1/guardrail/screen` |
 | **Hrz2** Enterprise KB | `enterprise-knowledge-base` | `RulesRetrievalPort` | `POST /v1/search` |
-| **Hrz3** Registry | `agent-registry` | `AgentRegistryPort` | `POST/GET /v1/agents` |
 | **Hrz4** AI Quality | `model-quality-gate` | `EvaluationGatePort` | `POST /v1/evaluations`, `POST /v1/gate` (bundle `doc4-trade-finance`) |
 | **Hrz5** Observability/Audit | `agent-observability` | `AuditSinkPort` | `POST /v1/audit` |
+| **Hrz7** Human-Review Console | `human-review-console` | `ReviewRouterPort` | `POST /v1/service/reviews` (via `review-kit`) |
 
-The `platform` adapters (`adapters/platform/remote_*.py`) are thin HTTP clients whose JSON
-field names mirror the domain dataclasses exactly (enums as strings), so swapping from the
-direct-GCP adapter to the remote client is a binding change, never a domain change.
+The `platform` adapters (`adapters/platform/`) are thin HTTP clients whose JSON field names
+mirror the domain dataclasses exactly (enums as strings), so swapping from the direct-GCP
+adapter to the remote client is a binding change, never a domain change. Doc4 also ships an
+Hrz3 `agent-registry` client (`AgentRegistryPort` bound to `RemoteRegistryAdapter`, rule R4)
+so a platform deployment can publish and resolve its A2A card centrally; no runtime path
+calls it and the card is self-served at `/.well-known/agent-card.json`, which is why Hrz3 is
+not among Doc4's mandatory dependencies in the catalog.
 
 ---
 
