@@ -33,7 +33,7 @@ the presented document and page):
 | 2 | **Discrepancy[]**: each finding (UCP600 article, document type, field, expected per LC/UCP600, found, severity, citations) | `tuple[Discrepancy, ...]` | `DiscrepancyDetector.detect()` |
 | 3 | **PresentationSummary**: the parsed LC terms + the documents checked, for traceability | `PresentationSummary` | `TradeCheckService.check()` |
 
-Catalog identity: **Doc4**, group **`doc`** (document automation), priority **P2**, buyer
+Catalog identity: **Doc4**, group **`doc`** (document automation), priority **P1**, buyer
 **Transaction Banking**. Mandatory platform dependencies: **Hrz1** Guardrail Gateway, **Hrz2**
 Enterprise KB (the governed UCP600 rule set), **Hrz3** Registry, **Hrz4** AI Quality (eval gate
 at promotion), **Hrz5** Observability/Audit. Each dependency is a separate repo; see
