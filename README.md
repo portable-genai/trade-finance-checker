@@ -311,7 +311,7 @@ clears its threshold.
 make eval        # runs eval/run_eval.py; non-zero exit fails the gate
 ```
 
-CI enforces it in the hosted Cloud Build check.
+CI enforces it in the hosted GitHub Actions check.
 See [`COMPLIANCE.md`](COMPLIANCE.md) for how this maps to the model-risk rule (R5).
 
 ---
