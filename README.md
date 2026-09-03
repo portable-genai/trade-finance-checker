@@ -131,7 +131,7 @@ sequence diagram, and the runtime topology.
 |---------|------------------------|------------|
 | Agent framework | ADK (Python) | `google-adk==2.7.1` |
 | Reasoning model | Gemini 3.5 Flash | `gemini-3.5-flash` (thinking=high) |
-| Triage model | Gemini 3.1 Flash-Lite | `gemini-3.1-flash-lite` |
+| Triage model | Gemini 3.5 Flash | `gemini-3.5-flash` |
 | Unified SDK | Google GenAI SDK | `google-genai` |
 | Document extraction | **Document AI** | `google-cloud-documentai` (regional processor) |
 | UCP600 rule set | **Hrz2 Enterprise KB** (File Search) | `POST /v1/search` (`KNOWLEDGE_BASE_URL`) |

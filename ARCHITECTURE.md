@@ -166,7 +166,7 @@ flowchart TB
     subgraph perimeter["VPC Service Controls perimeter : asia-southeast1"]
         subgraph runtime["Agent Runtime (reasoningEngine)"]
             ROOT["Root ADK agent<br/>gemini-3.5-flash (thinking=high)"]
-            TRIAGE["Triage<br/>gemini-3.1-flash-lite"]
+            TRIAGE["Triage<br/>gemini-3.5-flash"]
             ROOT --- TRIAGE
         end
         SESS["Sessions + Memory Bank"]
