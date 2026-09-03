@@ -1,7 +1,7 @@
 """Generation port : LLM text/reasoning for discrepancy explanation + report prose.
 
 Primary GCP adapter: Gemini models on the Gemini Enterprise Agent Platform
-(``gemini-3.5-flash`` for reasoning, ``gemini-3.1-flash-lite`` for triage).
+(``gemini-3.5-flash`` for reasoning, ``gemini-3.5-flash`` for triage).
 
 Important: the LLM only **explains** a discrepancy and **drafts** the report
 narrative. It never overrides a deterministic discrepancy decision : the verdict and
