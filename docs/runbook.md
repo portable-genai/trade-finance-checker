@@ -94,7 +94,7 @@ python eval/run_eval.py --use-gcp   # the judged Gen AI evaluation service (need
 
 A build is not promoted unless every metric (discrepancy recall, discrepancy precision,
 citation accuracy, PII safety) clears its threshold. CI enforces it
-(the hosted Cloud Build check).
+(the hosted GitHub Actions check).
 
 ## 7. Key rotation & retention
 
