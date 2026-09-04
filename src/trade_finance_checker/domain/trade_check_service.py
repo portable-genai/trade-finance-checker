@@ -220,7 +220,8 @@ class TradeCheckService:
         decision = Decision.ESCALATED if escalates else Decision.ALLOWED
         self._audit_report(actor, redacted_prompt, report, decision)
 
-        # 10) Route the escalation to Hrz7 (rule R8). A discrepancy report always requires human
+        # 10) Route the escalation to human-review-console (rule R8). A discrepancy report always
+        # requires human
         #     review, so it is handed to the maker-checker console rather than terminating in a
         #     boolean; the adapter redacts before the wire. Best-effort: a console outage must not
         #     fail an already-assembled, already-audited report (the audit record is the durable

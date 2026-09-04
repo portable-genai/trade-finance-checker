@@ -1,4 +1,4 @@
-# Doc4: Trade-Finance Document Checker
+# `trade-finance-checker`: Trade-Finance Document Checker
 
 **Industries:** Banking (trade finance), Logistics & shipping, Commodities trading, Export-import manufacturing, Trade-credit insurance
 
@@ -21,9 +21,9 @@
 
 ---
 
-## 1. What Doc4 produces
+## 1. What `trade-finance-checker` produces
 
-Doc4 examines one **presentation** under a documentary credit and returns **three cited
+`trade-finance-checker` examines one **presentation** under a documentary credit and returns **three cited
 artifacts**, each carrying examiner-grade provenance (the LC term, the UCP600 article, or
 the presented document and page):
 
@@ -33,10 +33,9 @@ the presented document and page):
 | 2 | **Discrepancy[]**: each finding (UCP600 article, document type, field, expected per LC/UCP600, found, severity, citations) | `tuple[Discrepancy, ...]` | `DiscrepancyDetector.detect()` |
 | 3 | **PresentationSummary**: the parsed LC terms + the documents checked, for traceability | `PresentationSummary` | `TradeCheckService.check()` |
 
-Catalog identity: **Doc4**, group **`doc`** (document automation), priority **P2**, buyer
-**Transaction Banking**. Mandatory platform dependencies: **Hrz1** Guardrail Gateway, **Hrz2**
-Enterprise KB (the governed UCP600 rule set), **Hrz4** AI Quality (eval gate at promotion),
-**Hrz5** Observability/Audit, **Hrz7** Human-Review Console (R8 review routing). Each
+Catalog identity: `trade-finance-checker`, group **`doc`** (document automation), priority **P2**, buyer
+**Transaction Banking**. Mandatory platform dependencies: `agent-guardrail-gateway`, `enterprise-knowledge-base` (the governed UCP600 rule set), `model-quality-gate` AI Quality (eval gate at promotion),
+`agent-observability`, `human-review-console` (R8 review routing). Each
 dependency is a separate repo; see [§9 Platform dependencies](#9-platform-dependencies).
 
 The **verdict and the discrepancy set are computed by deterministic, pure-domain code**
@@ -76,9 +75,9 @@ flowchart TB
 
     subgraph ports["Ports (14 Protocols): the hexagon boundary"]
         P1["DocumentExtraction"]
-        P2["RulesRetrieval (Hrz2)"]
+        P2["RulesRetrieval (`enterprise-knowledge-base`)"]
         P3["LLM"]
-        P4["Guardrail · PIIRedaction (Hrz1)"]
+        P4["Guardrail · PIIRedaction (`agent-guardrail-gateway`)"]
         P5["AuditSink · Tracer · EvaluationGate"]
         P6["AgentRegistry · ToolCatalog"]
         P7["AgentRuntime · Session · Memory"]
@@ -91,7 +90,7 @@ flowchart TB
         LO["SQLite FTS5 over UCP600 · deterministic LLM ·<br/>heuristic guardrail · regex DLP · local doc parser ·<br/>append-only audit · no-op tracer · in-process stores"]
     end
     subgraph plat["adapters/platform/*: sibling-service HTTP clients"]
-        PL["Remote Rules (Hrz2) · Remote Guardrail (Hrz1) ·<br/>Remote Audit (Hrz5) · Remote Registry (Hrz3) ·<br/>Remote Evaluation (Hrz4) · Review Router (Hrz7)"]
+        PL["Remote Rules (`enterprise-knowledge-base`) · Remote Guardrail (`agent-guardrail-gateway`) ·<br/>Remote Audit (`agent-observability`) · Remote Registry (`agent-registry`) ·<br/>Remote Evaluation (`model-quality-gate`) · Review Router (`human-review-console`)"]
     end
     subgraph onp["adapters/onprem/*: placeholder stubs"]
         ON["NotImplementedError stubs that satisfy<br/>the same Protocols (P-02 / P-12 exit story)"]
@@ -134,7 +133,7 @@ sequence diagram, and the runtime topology.
 | Triage model | Gemini 3.5 Flash | `gemini-3.5-flash` |
 | Unified SDK | Google GenAI SDK | `google-genai` |
 | Document extraction | **Document AI** | `google-cloud-documentai` (regional processor) |
-| UCP600 rule set | **Hrz2 Enterprise KB** (File Search) | `POST /v1/search` (`KNOWLEDGE_BASE_URL`) |
+| UCP600 rule set | **`enterprise-knowledge-base`** (File Search) | `POST /v1/search` (`KNOWLEDGE_BASE_URL`) |
 | Runtime | **Agent Runtime** (ex-Agent Engine) | `google-cloud-aiplatform[agent_engines,adk]`; `reasoningEngine` |
 | Sessions / Memory | Agent Platform Sessions / Memory Bank | ADK `VertexAiSessionService` / `VertexAiMemoryBankService` |
 | Guardrail | Model Armor | `modelarmor.asia-southeast1.rep.googleapis.com` `:sanitizeUserPrompt` / `:sanitizeModelResponse` |
@@ -253,7 +252,7 @@ the migration message until the placeholders are filled.
 
 ## 6. The check pipeline (full R1 safety)
 
-Because Doc4 handles trade-party PII, the **full Hrz1 safety pipeline** runs on every check:
+Because `trade-finance-checker` handles trade-party PII, the **full `agent-guardrail-gateway` safety pipeline** runs on every check:
 
 ```mermaid
 sequenceDiagram
@@ -263,7 +262,7 @@ sequenceDiagram
     participant Red as PIIRedactionPort (DLP)
     participant Grd as GuardrailPort (Model Armor)
     participant Ext as DocumentExtractionPort (Document AI)
-    participant Rul as RulesRetrievalPort (Hrz2)
+    participant Rul as RulesRetrievalPort (`enterprise-knowledge-base`)
     participant Det as DiscrepancyDetector (deterministic)
     participant LLM as LLMPort (Gemini 3.5 Flash)
     participant Aud as AuditSinkPort (WORM)
@@ -293,14 +292,14 @@ sequenceDiagram
     end
 ```
 
-Key invariants: redact before anything (P-04); both directions screened (Hrz1); the verdict
+Key invariants: redact before anything (P-04); both directions screened (`agent-guardrail-gateway`); the verdict
 and discrepancies come from the deterministic detector, never the LLM; the report always
 sets `requires_human_review = True` (P-06). All steps run inside a content-free trace span
 (P-09).
 
 ---
 
-## 7. The eval gate (Hrz4 / P-08)
+## 7. The eval gate (`model-quality-gate` / P-08)
 
 No build is promoted without passing a quality gate. `EvaluationGatePort.evaluate()` scores
 a golden set of presentations on **discrepancy recall, discrepancy precision, citation
@@ -324,7 +323,7 @@ See [`COMPLIANCE.md`](COMPLIANCE.md) for how this maps to the model-risk rule (R
 | **VPC Service Controls** | All managed services sit inside a service perimeter so data cannot egress. |
 | **CMEK** (regional) | Customer-managed Cloud KMS keys (`TRADE_FINANCE_KMS_KEY`) encrypt Document AI output, the log bucket, and more. |
 | **PII redaction before model** (**P-04**) | `DlpRedactionAdapter` de-identifies trade-party PII *before* it reaches the model, a span, or the audit sink. |
-| **Guardrail screening** (Hrz1 / R1) | `ModelArmorGuardrailAdapter` screens INPUT and OUTPUT for prompt injection, jailbreak, sensitive data, malicious URLs. |
+| **Guardrail screening** (`agent-guardrail-gateway` / R1) | `ModelArmorGuardrailAdapter` screens INPUT and OUTPUT for prompt injection, jailbreak, sensitive data, malicious URLs. |
 | **WORM audit** (**P-07**) | `CloudLoggingAuditAdapter` writes already-redacted `AuditEvent`s to a **locked** Cloud Logging bucket (retention 2557 days). |
 | **Tracing without PII** | Cloud Trace via OpenTelemetry with message-content capture **OFF**. |
 | **Maker-checker** (**P-06**) | `TradeReviewPolicy` always sets `requires_human_review`; the officer decides (pay, refuse, seek a waiver). |
@@ -339,23 +338,23 @@ to a concrete file/resource is in [`COMPLIANCE.md`](COMPLIANCE.md).
 
 ## 9. Platform dependencies
 
-Doc4 depends on five sibling platform services. When deployed standalone, the `gcp` adapters
+`trade-finance-checker` depends on five sibling platform services. When deployed standalone, the `gcp` adapters
 call Document AI / Model Armor / DLP / Cloud Logging directly (UCP600 retrieval and R8 review
-routing still reach Hrz2 and Hrz7 over HTTP); when deployed inside the full platform, the
+routing still reach `enterprise-knowledge-base` and `human-review-console` over HTTP); when deployed inside the full platform, the
 `platform` adapters delegate over HTTP (contracts in [`SPEC.md`](SPEC.md) §6).
 
-| Dep | Repo | Doc4 ports it backs | `platform` adapter |
+| Dep | Repo | `trade-finance-checker` ports it backs | `platform` adapter |
 |-----|------|-------------------|--------------------|
-| **Hrz1** Guardrail Gateway | `agent-guardrail-gateway` | `GuardrailPort`, `PIIRedactionPort` | `RemoteGuardrailAdapter` |
-| **Hrz2** Enterprise KB | `enterprise-knowledge-base` | `RulesRetrievalPort` | `RemoteRulesAdapter` |
-| **Hrz4** AI Quality | `model-quality-gate` | `EvaluationGatePort` | `RemoteEvaluationAdapter` |
-| **Hrz5** Observability/Audit | `agent-observability` | `AuditSinkPort` | `RemoteAuditAdapter` |
-| **Hrz7** Human-Review Console | `human-review-console` | `ReviewRouterPort` | `PlatformReviewRouter` |
+| `agent-guardrail-gateway` | `agent-guardrail-gateway` | `GuardrailPort`, `PIIRedactionPort` | `RemoteGuardrailAdapter` |
+| `enterprise-knowledge-base` | `enterprise-knowledge-base` | `RulesRetrievalPort` | `RemoteRulesAdapter` |
+| `model-quality-gate` AI Quality | `model-quality-gate` | `EvaluationGatePort` | `RemoteEvaluationAdapter` |
+| `agent-observability` | `agent-observability` | `AuditSinkPort` | `RemoteAuditAdapter` |
+| `human-review-console` | `human-review-console` | `ReviewRouterPort` | `PlatformReviewRouter` |
 
-Doc4 also ships an Hrz3 `agent-registry` client (`AgentRegistryPort` bound to
+`trade-finance-checker` also ships an `agent-registry` client (`AgentRegistryPort` bound to
 `RemoteRegistryAdapter`, rule R4) so a platform deployment can publish and resolve its A2A
 card centrally; no runtime path calls it and the card is self-served at
-`/.well-known/agent-card.json`, which is why the catalog does not list Hrz3 among Doc4's
+`/.well-known/agent-card.json`, which is why the catalog does not list `agent-registry` among `trade-finance-checker`'s
 mandatory dependencies.
 
 See [`ARCHITECTURE.md`](ARCHITECTURE.md) §6 for the dependency relationship in detail.
@@ -378,10 +377,10 @@ flowchart LR
     agent["agent/<br/>ADK agent + A2A/MCP server wiring"]
     api["api/<br/>FastAPI service"]
     cli["cli/<br/>Typer CLI (entry point: trade-finance-checker)"]
-    pipelines["pipelines/<br/>UCP600 rule-source registry (Hrz2 seed)"]
+    pipelines["pipelines/<br/>UCP600 rule-source registry (`enterprise-knowledge-base` seed)"]
     srcconfig["config.py<br/>Settings + Container (DI for the hexagon)"]
     config["config/settings.yaml<br/>port -> adapter bindings, region, models, retention"]
-    eval["eval/<br/>run_eval.py + golden presentations (the Hrz4 gate)"]
+    eval["eval/<br/>run_eval.py + golden presentations (the `model-quality-gate`)"]
     terraform["terraform/<br/>asia-southeast1 infra (Document AI, DLP, WORM bucket)"]
     ui["ui/<br/>React / Next.js app"]
     tests["tests/<br/>contract + unit tests (run under the local profile)"]
@@ -428,7 +427,7 @@ flowchart LR
 
 ## Cost and latency
 
-Size this system's cost and latency with the shared interactive calculator: [**live**](https://portable-genai.github.io/cost-latency-calculator/calc/calculator.html?system=Doc4) or the [in-repo page](cost-latency-calculator.html). The engine and the pricing book are maintained once in [cost-latency-calculator](https://github.com/portable-genai/cost-latency-calculator).
+Size this system's cost and latency with the shared interactive calculator: [**live**](https://portable-genai.github.io/cost-latency-calculator/calc/calculator.html?system=trade-finance-checker) or the [in-repo page](cost-latency-calculator.html). The engine and the pricing book are maintained once in [cost-latency-calculator](https://github.com/portable-genai/cost-latency-calculator).
 
 ## License
 

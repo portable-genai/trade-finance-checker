@@ -1,4 +1,4 @@
-# Contributing to Doc4 Trade-Finance Document Checker
+# Contributing to `trade-finance-checker` Trade-Finance Document Checker
 
 Thanks for your interest. This is a public engineering-portfolio reference build; the bar is
 production-grade style, internal consistency, and a green offline gate.
@@ -32,7 +32,7 @@ and the GCP SDKs live in the `[gcp]` extra.
 ```bash
 make lint        # ruff check + ruff format --check + mypy
 make test        # pytest -m 'not integration' (unit + contract)
-make eval        # the offline Hrz4 eval gate (exit 0)
+make eval        # the offline `model-quality-gate` (exit 0)
 ```
 
 `ruff check`, `ruff format --check`, and `pytest -m 'not integration'` passing are

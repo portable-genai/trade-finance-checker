@@ -1,6 +1,6 @@
-# Runbook : Doc4 Trade-Finance Document Checker
+# Runbook : `trade-finance-checker` Trade-Finance Document Checker
 
-Operational guide for deploying and running Doc4 in `asia-southeast1`. The on-prem/test
+Operational guide for deploying and running `trade-finance-checker` in `asia-southeast1`. The on-prem/test
 profile needs none of this; this is the `gcp` (and `platform`) profile playbook.
 
 ## 1. Prerequisites
@@ -53,23 +53,23 @@ gcloud auth application-default login
 make run-api        # FastAPI on :8094
 ```
 
-Both live profiles route R8 reviews to Hrz7: set `HUMAN_REVIEW_URL` (plus the shared
+Both live profiles route R8 reviews to `human-review-console`: set `HUMAN_REVIEW_URL` (plus the shared
 `S2S_TOKEN` / `S2S_SIGNING_KEY` pair the platform delegates use), or every escalation skips
 the console (the routing is best-effort; the WORM audit record stays the escalation of
 record). For the `platform` profile, also set `GUARDRAIL_GATEWAY_URL`, `KNOWLEDGE_BASE_URL`,
-`QUALITY_GATE_URL`, `OBSERVABILITY_URL` to the Hrz1/Hrz2/Hrz4/Hrz5 service endpoints, and
-`AGENT_REGISTRY_URL` only if the deployment publishes the agent card to Hrz3.
+`QUALITY_GATE_URL`, `OBSERVABILITY_URL` to the `agent-guardrail-gateway`, `enterprise-knowledge-base`, `model-quality-gate`, `agent-observability` service endpoints, and
+`AGENT_REGISTRY_URL` only if the deployment publishes the agent card to `agent-registry`.
 
-## 4. Seed the governed UCP600 rule set (Hrz2)
+## 4. Seed the governed UCP600 rule set (`enterprise-knowledge-base`)
 
-Doc4 does not vendor UCP600. Seed the Hrz2 `ucp600-rules` collection with the articles the
+`trade-finance-checker` does not vendor UCP600. Seed the `enterprise-knowledge-base` `ucp600-rules` collection with the articles the
 detector maps discrepancies to:
 
 ```bash
 python -m trade_finance_checker.pipelines.seed_rules   # lists the expected articles
 ```
 
-Ingest those articles into Hrz2 via its `/v1/ingest` surface (an Hrz2 concern). Doc4 retrieves them
+Ingest those articles into `enterprise-knowledge-base` via its `/v1/ingest` surface (an `enterprise-knowledge-base` concern). `trade-finance-checker` retrieves them
 at runtime via `RulesRetrievalPort` (R3).
 
 ## 5. Deploy the agent to Agent Runtime
@@ -85,7 +85,7 @@ remote = agent_engines.create(
 )  # record remote.resource_name in settings.agent_engine.resource_name
 ```
 
-## 6. Promotion gate (Hrz4)
+## 6. Promotion gate (`model-quality-gate`)
 
 ```bash
 make eval                       # offline gate; must exit 0
@@ -99,7 +99,7 @@ citation accuracy, PII safety) clears its threshold. CI enforces it
 ## 7. Key rotation & retention
 
 - **CMEK rotation:** rotate the Cloud KMS key on your schedule; the regional key encrypts
-  Document AI output staging and the log bucket. Rotating the key does not require a Doc4
+  Document AI output staging and the log bucket. Rotating the key does not require a `trade-finance-checker`
   redeploy.
 - **Audit retention:** `LoggingSettings.retention_days = 2557` (~7 years). The bucket is
   locked, so this is irreversible; plan the value carefully.

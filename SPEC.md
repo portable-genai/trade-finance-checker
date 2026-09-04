@@ -1,4 +1,4 @@
-# Doc4 Trade-Finance Document Checker : Build Specification
+# `trade-finance-checker` Trade-Finance Document Checker : Build Specification
 
 > Single source of truth for the implementation. The contract layer
 > (`src/trade_finance_checker/domain/models.py`, `src/trade_finance_checker/ports/`,
@@ -6,7 +6,7 @@
 > before writing any adapter, service, test, or Terraform. Do not change the contract;
 > implement against it.
 
-## 1. What Doc4 is
+## 1. What `trade-finance-checker` is
 
 A trade-finance document checker for **Transaction Banking**. It parses a **Letter of
 Credit** and the presented document set (invoice, bill of lading, insurance, packing list,
@@ -20,12 +20,10 @@ produces three cited artifacts:
    LC/UCP600, found, severity, citations).
 3. **PresentationSummary** : the parsed LC terms + the documents checked, for traceability.
 
-Catalog identity: **Doc4**, group **`doc`** (document automation), priority **P2**, buyer
-**Transaction Banking**. Mandatory platform dependencies: **Hrz1** Guardrail Gateway, **Hrz2**
-Enterprise KB (governed UCP600 rule set), **Hrz4** AI Quality (eval gate), **Hrz5**
-Observability/Audit, **Hrz7** Human-Review Console (R8 review routing). Doc4 handles
-trade-party PII, so rule **R1** applies (the full Hrz1 pipeline). Maker-checker (P-06) is
-mandatory: every report routes to the Hrz7 console (R8) and the officer decides.
+Catalog identity: `trade-finance-checker`, group **`doc`** (document automation), priority **P2**, buyer
+**Transaction Banking**. Mandatory platform dependencies: `agent-guardrail-gateway`, `enterprise-knowledge-base` (governed UCP600 rule set), `model-quality-gate` AI Quality (eval gate), `agent-observability`, `human-review-console` (R8 review routing). `trade-finance-checker` handles
+trade-party PII, so rule **R1** applies (the full `agent-guardrail-gateway` pipeline). Maker-checker (P-06) is
+mandatory: every report routes to the `human-review-console` (R8) and the officer decides.
 
 ## 2. Locked decisions
 
@@ -33,7 +31,7 @@ mandatory: every report routes to the Hrz7 console (R8) and the officer decides.
 |---|---|
 | Repo | `trade-finance-checker` (public, Apache-2.0), Python 3.12, ADK 2.3.0, React/Next.js UI |
 | Extraction | **Document AI only** as the production backend, regional processor in `asia-southeast1`. |
-| UCP600 rules | **Retrieved at runtime from Hrz2** (File Search over the UCP600 articles). The repo ships only the article registry + a synthetic sample; the text is never vendored. |
+| UCP600 rules | **Retrieved at runtime from `enterprise-knowledge-base`** (File Search over the UCP600 articles). The repo ships only the article registry + a synthetic sample; the text is never vendored. |
 | Verdict | **Deterministic.** The verdict and the discrepancy set are computed by `DiscrepancyDetector` (pure domain). The LLM only drafts the narrative and can never override a finding. |
 | Runtime | **Agent Runtime only** (managed, ex-Agent Engine) with GA Sessions + Memory Bank. |
 | UI | **React / Next.js** app. |
@@ -52,7 +50,7 @@ still `aiplatform.googleapis.com`.
 | Triage model | Gemini 3.5 Flash | `gemini-3.5-flash` |
 | Unified SDK | Google GenAI SDK | `google-genai` |
 | Document extraction | Document AI | `google-cloud-documentai`; regional processor |
-| UCP600 rule set | Hrz2 Enterprise KB (File Search) | `POST /v1/search` (`KNOWLEDGE_BASE_URL`) |
+| UCP600 rule set | `enterprise-knowledge-base` (File Search) | `POST /v1/search` (`KNOWLEDGE_BASE_URL`) |
 | Runtime | Agent Runtime (ex-Agent Engine) | `google-cloud-aiplatform[agent_engines,adk]`; `reasoningEngine` |
 | Sessions / Memory | Agent Platform Sessions / Memory Bank | ADK `VertexAiSessionService` / `VertexAiMemoryBankService` |
 | Guardrail | Model Armor | `modelarmor.asia-southeast1.rep.googleapis.com` `:sanitizeUserPrompt`/`:sanitizeModelResponse` |
@@ -114,7 +112,7 @@ FTS5 retrieval, so those stay on the SDK-free workaround unconditionally.
 
 ## 5. Orchestration pipeline (in `domain/`)
 
-The `TradeCheckService` owns orchestration and calls only ports. Because Doc4 handles PII,
+The `TradeCheckService` owns orchestration and calls only ports. Because `trade-finance-checker` handles PII,
 the **full R1 safety pipeline** runs:
 
 ```mermaid
@@ -122,7 +120,7 @@ flowchart TD
     redact["redact(LC + documents)"] --> screenIn["guardrail.screen(INPUT)"]
     screenIn -->|blocked| blockedAudit["audit + return blocked report"]
     screenIn -->|allowed| extract["extraction.extract(each doc) + redact"]
-    extract --> rules["rules.retrieve_rules (Hrz2 UCP600)"]
+    extract --> rules["rules.retrieve_rules (`enterprise-knowledge-base` UCP600)"]
     rules --> detect["DiscrepancyDetector.detect (DETERMINISTIC)"]
     detect --> verdict["TradeReviewPolicy.verdict + requires_human_review"]
     verdict --> draft["llm.generate (draft narrative, never authoritative)"]
@@ -152,7 +150,7 @@ Service and policies (constructors take explicit port instances; the API builds 
 
 ## 6. Service HTTP contracts
 
-### 6.1 Endpoints Doc4 DEFINES (consumed by the UI / CLI / peers)
+### 6.1 Endpoints `trade-finance-checker` DEFINES (consumed by the UI / CLI / peers)
 
 * `POST /v1/check` `{ "lc": {LetterOfCredit}, "documents": [{PresentedDocument}] }`
   to `DiscrepancyReport` `{ "lc_number", "documents_checked":[str], "discrepancies":[
@@ -178,34 +176,34 @@ Skills advertised on the AgentCard: `check_presentation`, `detect_discrepancies`
 "severity", "citations":[{Citation}] }`. `Citation` JSON: `{ "source_id", "source_type":
 "LC"|"UCP600"|"DOCUMENT", "title", "url", "page", "snippet", "score" }`.
 
-### 6.2 Endpoints Doc4 CONSUMES (the platform dependencies)
+### 6.2 Endpoints `trade-finance-checker` CONSUMES (the platform dependencies)
 
 All JSON field names mirror the domain dataclasses; enums are strings.
 
-**Hrz1 `agent-guardrail-gateway`** (env `GUARDRAIL_GATEWAY_URL`, default `:8080`)
+**`agent-guardrail-gateway`** (env `GUARDRAIL_GATEWAY_URL`, default `:8080`)
 * `POST /v1/guardrail/screen` `{ text, direction }` to `{ allowed, direction, findings[],
   sanitized_text, reason }`
 
-**Hrz2 `enterprise-knowledge-base`** (env `KNOWLEDGE_BASE_URL`, default `:8082`)
+**`enterprise-knowledge-base`** (env `KNOWLEDGE_BASE_URL`, default `:8082`)
 * `POST /v1/search` `{ query, top_k, acl_principals[], filters }` to `{ passages:[{ text,
   citation:{article|source_id, title, url}, score }] }` : the governed UCP600 articles.
 
-**Hrz3 `agent-registry`** (env `AGENT_REGISTRY_URL`, default `:8083`)
+**`agent-registry`** (env `AGENT_REGISTRY_URL`, default `:8083`)
 * `POST /v1/agents` `{AgentCard}` to 201; `GET /v1/agents/{name}`; `GET /v1/agents`.
 
-**Hrz4 `model-quality-gate`** (env `QUALITY_GATE_URL`, default `:8084`)
+**`model-quality-gate`** (env `QUALITY_GATE_URL`, default `:8084`)
 * `POST /v1/evaluations` `{ target:{ model, prompt_version, dataset_id, system }, dataset_id,
   bundle:"doc4-trade-finance" }` to `{ results:[{ metric, score, threshold, passed }], n }`.
-  The metric set is chosen by the registered `bundle` name : Doc4 never sends metric names on
+  The metric set is chosen by the registered `bundle` name : `trade-finance-checker` never sends metric names on
   the wire (an unregistered name is rejected 422), and top-level `dataset_id` must equal
   `target.dataset_id` (422 on divergence). `RemoteEvaluationAdapter` maps `results[]` into
   `EvalReport`.
 * `POST /v1/gate` (same body) to `{ passed }` : the promotion pass/fail decision.
 
-**Hrz5 `agent-observability`** (env `OBSERVABILITY_URL`, default `:8085`)
+**`agent-observability`** (env `OBSERVABILITY_URL`, default `:8085`)
 * `POST /v1/audit` `{AuditEvent}` to 202.
 
-**Hrz7 `human-review-console`** (env `HUMAN_REVIEW_URL` : required, no default)
+**`human-review-console`** (env `HUMAN_REVIEW_URL` : required, no default)
 * `POST /v1/service/reviews` `{Review}` : the escalated `DiscrepancyReport`, submitted through
   the shared `review-kit` client (S2S headers from `S2S_TOKEN` / `S2S_SIGNING_KEY`,
   redact-before-wire) whenever `requires_human_review` is set (rule R8). Best-effort at the
