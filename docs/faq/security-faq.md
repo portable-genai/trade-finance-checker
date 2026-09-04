@@ -106,7 +106,7 @@ limits exactly: `verify_chain` catches in-place edits, interior deletions and re
 cannot by itself detect a truncated tail or a full rewrite by an actor with file write access
 (the chain carries no secret). In production the `gcp` profile writes to a locked Cloud Logging
 WORM bucket, which provides non-rewritability itself. This repo does not *replace* the platform
-audit system (Hrz5); see [features-faq.md](features-faq.md). Proven by
+audit system (`agent-observability`); see [features-faq.md](features-faq.md). Proven by
 `tests/unit/test_audit_chain.py`.
 
 ### Supply chain: are dependencies pinned and scanned?
@@ -134,6 +134,6 @@ obviously-fictional.
 - The hash chain needs the WORM bucket (or an external head anchor) to resist tail truncation
   and full rewrite.
 - The runtime guardrail (PII redaction, prompt-injection / jailbreak defense) is the sibling
-  **Hrz1** gateway; this repo consumes it rather than owning it.
+  `agent-guardrail-gateway`; this repo consumes it rather than owning it.
 - This is a reference build: run your own pen-test, threat model, and model-risk review before
   any live-data deployment (stated throughout the docs).

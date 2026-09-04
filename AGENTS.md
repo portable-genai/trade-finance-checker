@@ -7,14 +7,14 @@ here. Read it first. This file carries only what is specific to this one.
 
 ## What this is
 
-Catalog id **Doc4**. Letter-of-credit vs UCP600 discrepancy detection across the
+Catalog id `trade-finance-checker`. Letter-of-credit vs UCP600 discrepancy detection across the
 document set.
 
 ## Concrete bindings
 
 | | |
 |---|---|
-| Catalog id | `Doc4` |
+| Catalog id | `trade-finance-checker` |
 | Package | `src/trade_finance_checker/` |
 | Profile variable | `TRADE_FINANCE_PROFILE` |
 | Adapter families | `gcp`, `live`, `local`, `onprem`, `platform` |

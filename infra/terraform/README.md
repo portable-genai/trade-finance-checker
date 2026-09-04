@@ -1,6 +1,6 @@
-# Terraform : Doc4 Trade-Finance Document Checker infrastructure
+# Terraform : `trade-finance-checker` Trade-Finance Document Checker infrastructure
 
-Managed-stack infrastructure for Doc4, defaulting to `asia-southeast1` (Singapore). Only
+Managed-stack infrastructure for `trade-finance-checker`, defaulting to `asia-southeast1` (Singapore). Only
 `project_id`, the residency values (`region`, `allowed_regions`) and an org `access_policy_id`
 for the VPC-SC perimeter are variables; every resource location derives from `var.region`,
 which is chosen at deploy time and validated against the `allowed_regions` allowlist (default
@@ -19,8 +19,8 @@ which is chosen at deploy time and validated against the `allowed_regions` allow
 | `kms.tf` | Regional CMEK key ring + key (P-10) with service-agent IAM bindings. |
 | `document_ai.tf` | Regional Document AI processor for parsing the LC + trade documents. |
 | `dlp.tf` | DLP inspect + de-identify templates (trade-party PII, P-04). |
-| `model_armor.tf` | Model Armor template for input/output screening (Hrz1 / P-05). |
-| `logging_worm.tf` | Locked WORM Cloud Logging bucket (~7y, irreversible) + audit sink (Hrz5 / P-07). |
+| `model_armor.tf` | Model Armor template for input/output screening (`agent-guardrail-gateway` / P-05). |
+| `logging_worm.tf` | Locked WORM Cloud Logging bucket (~7y, irreversible) + audit sink (`agent-observability` / P-07). |
 | `iam.tf` | Least-privilege runtime service account + role bindings (P-03). |
 | `vpc_sc.tf` | VPC Service Controls perimeter (P-01); created only when `access_policy_id` is set. |
 | `agent_runtime.tf` | CMEK-encrypted staging bucket for the Agent Runtime deploy. |

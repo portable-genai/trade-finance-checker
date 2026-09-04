@@ -1,4 +1,4 @@
-# Architecture : Doc4 Trade-Finance Document Checker
+# Architecture : `trade-finance-checker` Trade-Finance Document Checker
 
 This document goes deeper than the [README](README.md): the complete port to adapter table,
 the check pipeline as a sequence diagram, the runtime topology on Agent Runtime, and the
@@ -11,7 +11,7 @@ pieces fit together; it does not redefine them.
 
 ## 1. Hexagonal overview
 
-Doc4 is a **ports-and-adapters** (hexagonal) application. The domain core in
+`trade-finance-checker` is a **ports-and-adapters** (hexagonal) application. The domain core in
 [`src/trade_finance_checker/domain/`](src/trade_finance_checker/domain/) owns all
 orchestration and has **no** dependency on Google Cloud, ADK, FastAPI, or any framework :
 only the Python standard library. Everything the domain needs from the outside world is
@@ -66,26 +66,26 @@ cleanly and satisfies the Protocol** but raises `NotImplementedError` from every
 | # | Port (`Protocol`) | Concern | `gcp` adapter | `local` adapter (SDK-free) | `platform` adapter | `onprem` placeholder |
 |---|-------------------|---------|---------------|----------------------------|--------------------|----------------------|
 | 1 | `DocumentExtractionPort` | LC + document parsing | `gcp.document_ai_extraction:DocumentAiExtractionAdapter` | `local.extraction:LocalDocumentExtractionAdapter` (text / pypdf parser) | n/a | `onprem.extraction:OnPremExtractionAdapter` |
-| 2 | `RulesRetrievalPort` | UCP600 rules (Hrz2, R3) | `platform.remote_rules:RemoteRulesAdapter` | `local.rules:LocalFtsRulesAdapter` (SQLite FTS5, BM25) | `platform.remote_rules:RemoteRulesAdapter` | `onprem.rules:OnPremRulesAdapter` |
+| 2 | `RulesRetrievalPort` | UCP600 rules (`enterprise-knowledge-base`, R3) | `platform.remote_rules:RemoteRulesAdapter` | `local.rules:LocalFtsRulesAdapter` (SQLite FTS5, BM25) | `platform.remote_rules:RemoteRulesAdapter` | `onprem.rules:OnPremRulesAdapter` |
 | 3 | `LLMPort` | Narrative drafting / triage | `gcp.gemini_llm:GeminiLLMAdapter` | `local.llm:LocalDeterministicLLMAdapter` (schema-driven) | n/a | `onprem.llm:OnPremLLMAdapter` |
-| 4 | `GuardrailPort` | Input/output screening (Hrz1) | `gcp.model_armor_guardrail:ModelArmorGuardrailAdapter` | `local.guardrail:LocalHeuristicGuardrailAdapter` | `platform.remote_guardrail:RemoteGuardrailAdapter` | `onprem.guardrail:OnPremGuardrailAdapter` |
-| 5 | `PIIRedactionPort` | PII de-identification (Hrz1, P-04); both live families read the jurisdiction packs in `domain/pii_patterns.py` | `gcp.dlp_redaction:DlpRedactionAdapter` | `local.redaction:LocalRegexRedactionAdapter` | n/a | `onprem.redaction:OnPremRedactionAdapter` |
+| 4 | `GuardrailPort` | Input/output screening (`agent-guardrail-gateway`) | `gcp.model_armor_guardrail:ModelArmorGuardrailAdapter` | `local.guardrail:LocalHeuristicGuardrailAdapter` | `platform.remote_guardrail:RemoteGuardrailAdapter` | `onprem.guardrail:OnPremGuardrailAdapter` |
+| 5 | `PIIRedactionPort` | PII de-identification (`agent-guardrail-gateway`, P-04); both live families read the jurisdiction packs in `domain/pii_patterns.py` | `gcp.dlp_redaction:DlpRedactionAdapter` | `local.redaction:LocalRegexRedactionAdapter` | n/a | `onprem.redaction:OnPremRedactionAdapter` |
 | 6 | `AgentRuntimePort` | Hosted agent | `gcp.agent_runtime:AgentRuntimeAdapter` | `local.runtime:LocalAgentRuntimeAdapter` (in-process) | n/a | `onprem.runtime:OnPremAgentRuntimeAdapter` |
 | 7 | `SessionPort` | Per-case session state | `gcp.vertex_sessions:VertexSessionsAdapter` | `local.session:LocalSessionAdapter` | n/a | `onprem.session:OnPremSessionAdapter` |
 | 8 | `MemoryPort` | Durable officer memory | `gcp.vertex_memory_bank:VertexMemoryBankAdapter` | `local.memory:LocalMemoryAdapter` | n/a | `onprem.memory:OnPremMemoryAdapter` |
-| 9 | `AuditSinkPort` | WORM audit (Hrz5, P-07) | `gcp.cloud_logging_audit:CloudLoggingAuditAdapter` | `local.audit:LocalAppendOnlyAuditAdapter` | `platform.remote_audit:RemoteAuditAdapter` | `onprem.audit:OnPremAuditAdapter` |
-| 10 | `ObservabilityTracerPort` | Tracing + FinOps (Hrz5) | `gcp.cloud_trace_tracer:CloudTraceTracerAdapter` | `local.tracer:LocalNoopTracerAdapter` | n/a | `onprem.tracer:OnPremTracerAdapter` |
-| 11 | `EvaluationGatePort` | Eval gate (Hrz4, P-08) | `gcp.genai_eval:GenAiEvalAdapter` | `local.evaluation:LocalOfflineEvalAdapter` (delegates to eval/run_eval.py) | `platform.remote_evaluation:RemoteEvaluationAdapter` | `onprem.evaluation:OnPremEvalAdapter` |
-| 12 | `AgentRegistryPort` | A2A registry (Hrz3) | `gcp.a2a_registry:A2ARegistryAdapter` | `local.registry:LocalRegistryAdapter` | `platform.remote_registry:RemoteRegistryAdapter` | `onprem.registry:OnPremRegistryAdapter` |
-| 13 | `ToolCatalogPort` | Governed MCP tools (Hrz3) | `gcp.mcp_tool_catalog:McpToolCatalogAdapter` | `local.tool_catalog:LocalToolCatalogAdapter` | n/a | `onprem.tool_catalog:OnPremToolCatalogAdapter` |
+| 9 | `AuditSinkPort` | WORM audit (`agent-observability`, P-07) | `gcp.cloud_logging_audit:CloudLoggingAuditAdapter` | `local.audit:LocalAppendOnlyAuditAdapter` | `platform.remote_audit:RemoteAuditAdapter` | `onprem.audit:OnPremAuditAdapter` |
+| 10 | `ObservabilityTracerPort` | Tracing + FinOps (`agent-observability`) | `gcp.cloud_trace_tracer:CloudTraceTracerAdapter` | `local.tracer:LocalNoopTracerAdapter` | n/a | `onprem.tracer:OnPremTracerAdapter` |
+| 11 | `EvaluationGatePort` | Eval gate (`model-quality-gate`, P-08) | `gcp.genai_eval:GenAiEvalAdapter` | `local.evaluation:LocalOfflineEvalAdapter` (delegates to eval/run_eval.py) | `platform.remote_evaluation:RemoteEvaluationAdapter` | `onprem.evaluation:OnPremEvalAdapter` |
+| 12 | `AgentRegistryPort` | A2A registry (`agent-registry`) | `gcp.a2a_registry:A2ARegistryAdapter` | `local.registry:LocalRegistryAdapter` | `platform.remote_registry:RemoteRegistryAdapter` | `onprem.registry:OnPremRegistryAdapter` |
+| 13 | `ToolCatalogPort` | Governed MCP tools (`agent-registry`) | `gcp.mcp_tool_catalog:McpToolCatalogAdapter` | `local.tool_catalog:LocalToolCatalogAdapter` | n/a | `onprem.tool_catalog:OnPremToolCatalogAdapter` |
 | 14 | `IdentityPort` | Server-verified end-user identity (P-02) | `gcp.iap_identity:IapIdentityAdapter` (verifies the Cloud IAP assertion) | `local.identity:LocalPersonaIdentityAdapter` (seeded dev personas, no IdP) | `gcp.iap_identity:IapIdentityAdapter` | `onprem.identity:OnPremIdentityAdapter` |
 
 > Dotted paths above are relative to the `trade_finance_checker.adapters` package; the
 > fully-qualified bindings are in [`config/settings.yaml`](config/settings.yaml) under
 > `adapters:` and are the build contract. Four ports have a `platform` entry (rules,
-> guardrail, audit, registry) plus evaluation, matching the platform services Doc4 consumes.
-> The rules port's default `gcp` binding also resolves to the Hrz2 remote client, because the
-> governed UCP600 set lives in Hrz2 even in the standalone managed profile (R3).
+> guardrail, audit, registry) plus evaluation, matching the platform services `trade-finance-checker` consumes.
+> The rules port's default `gcp` binding also resolves to the `enterprise-knowledge-base` remote client, because the
+> governed UCP600 set lives in `enterprise-knowledge-base` even in the standalone managed profile (R3).
 
 **Server-verified identity (no client-asserted actor).** The `IdentityPort` (row 14) resolves a
 verified `Principal` from the inbound request headers at the API boundary (`api/security.py`
@@ -101,8 +101,8 @@ with CSP `frame-ancestors` and per-tenant CORS on the embedding surface. See
 
 ## 3. The check pipeline
 
-The `TradeCheckService` owns orchestration and calls only ports. Because Doc4 handles
-trade-party PII, the **full Hrz1 safety pipeline** runs on every check (rule R1):
+The `TradeCheckService` owns orchestration and calls only ports. Because `trade-finance-checker` handles
+trade-party PII, the **full `agent-guardrail-gateway` safety pipeline** runs on every check (rule R1):
 
 ```mermaid
 sequenceDiagram
@@ -113,7 +113,7 @@ sequenceDiagram
     participant Red as PIIRedactionPort (DLP)
     participant Grd as GuardrailPort (Model Armor)
     participant Ext as DocumentExtractionPort (Document AI)
-    participant Rul as RulesRetrievalPort (Hrz2)
+    participant Rul as RulesRetrievalPort (`enterprise-knowledge-base`)
     participant Det as DiscrepancyDetector (deterministic)
     participant LLM as LLMPort (Gemini 3.5 Flash)
     participant Aud as AuditSinkPort (WORM)
@@ -147,7 +147,7 @@ sequenceDiagram
 Key invariants:
 - **Redact before everything** : PII never reaches the model, a span, or the WORM sink
   (P-04). The `AuditEvent` stores `redacted_prompt` / `redacted_response`.
-- **Both directions screened** : INPUT before extraction, OUTPUT before return (Hrz1 / R1).
+- **Both directions screened** : INPUT before extraction, OUTPUT before return (`agent-guardrail-gateway` / R1).
 - **Deterministic verdict** : the verdict and the discrepancy set come from
   `DiscrepancyDetector`, never the LLM. A misbehaving model cannot add, drop, or re-grade a
   finding (a unit test enforces this).
@@ -171,7 +171,7 @@ flowchart TB
         end
         SESS["Sessions + Memory Bank"]
         DOCAI["Document AI<br/>(regional processor)"]
-        KB["Hrz2 Enterprise KB<br/>(UCP600 rules)"]
+        KB["`enterprise-knowledge-base`<br/>(UCP600 rules)"]
         MA["Model Armor<br/>(regional endpoint)"]
         DLP["Sensitive Data Protection / DLP"]
         LOG["Cloud Logging<br/>locked WORM bucket"]
@@ -216,7 +216,7 @@ free of model variance, while still giving the officer a readable summary.
 flowchart LR
     LC["Letter of Credit terms"] --> DET["DiscrepancyDetector (pure)"]
     EXT["DocumentExtract[] (Document AI)"] --> DET
-    RUL["UCP600 articles (Hrz2)"] --> DET
+    RUL["UCP600 articles (`enterprise-knowledge-base`)"] --> DET
     DET --> FIND["Discrepancy[] + verdict"]
     FIND --> LLM["LLM: draft narrative only"]
     LLM --> REPORT["DiscrepancyReport (verdict unchanged)"]
@@ -225,16 +225,16 @@ flowchart LR
 
 ---
 
-## 6. Dependency relationship to the platform (Hrz1 to Hrz7)
+## 6. Dependency relationship to the platform (`agent-guardrail-gateway` to `human-review-console`)
 
-Doc4 (catalog **Doc4**, group `doc`) is a leaf application that depends on five platform
+`trade-finance-checker` (catalog `trade-finance-checker`, group `doc`) is a leaf application that depends on five platform
 services. The dependency rules **R1..R6, R8** (see [`COMPLIANCE.md`](COMPLIANCE.md)) require that
-those concerns are *not* re-implemented in Doc4 but consumed from the platform. Doc4 satisfies
+those concerns are *not* re-implemented in `trade-finance-checker` but consumed from the platform. `trade-finance-checker` satisfies
 this two ways without changing the domain:
 
 ```mermaid
 flowchart LR
-    subgraph b4["Doc4 (this repo)"]
+    subgraph b4["`trade-finance-checker` (this repo)"]
         DOMAIN[Domain core]
         EXTP[DocumentExtractionPort]
         RULP[RulesRetrievalPort]
@@ -253,39 +253,39 @@ flowchart LR
     end
 
     subgraph platform["profile = platform (inside the platform)"]
-        Hrz1[Hrz1 guardrail gateway]
-        Hrz2[Hrz2 enterprise KB]
-        Hrz7[Hrz7 human review]
-        Hrz4[Hrz4 AI quality]
-        Hrz5[Hrz5 observability]
+        `agent-guardrail-gateway`[`agent-guardrail-gateway`]
+        `enterprise-knowledge-base`[`enterprise-knowledge-base`]
+        `human-review-console`[`human-review-console` human review]
+        `model-quality-gate`[`model-quality-gate` AI quality]
+        `agent-observability`[`agent-observability`]
     end
 
     EXTP -- gcp --> DOCAI
     GUARD -- gcp --> MA
     AUDIT -- gcp --> CL
     EVAP -- gcp --> GE
-    RULP -- both --> Hrz2
-    GUARD -- platform --> Hrz1
-    AUDIT -- platform --> Hrz5
-    REVP -- both --> Hrz7
-    EVAP -- platform --> Hrz4
+    RULP -- both --> `enterprise-knowledge-base`
+    GUARD -- platform --> `agent-guardrail-gateway`
+    AUDIT -- platform --> `agent-observability`
+    REVP -- both --> `human-review-console`
+    EVAP -- platform --> `model-quality-gate`
 ```
 
-| Dependency | Repo | Backs Doc4 ports | HTTP contract (SPEC §6) |
+| Dependency | Repo | Backs `trade-finance-checker` ports | HTTP contract (SPEC §6) |
 |------------|------|----------------|-------------------------|
-| **Hrz1** Guardrail Gateway | `agent-guardrail-gateway` | `GuardrailPort`, `PIIRedactionPort` | `POST /v1/guardrail/screen` |
-| **Hrz2** Enterprise KB | `enterprise-knowledge-base` | `RulesRetrievalPort` | `POST /v1/search` |
-| **Hrz4** AI Quality | `model-quality-gate` | `EvaluationGatePort` | `POST /v1/evaluations`, `POST /v1/gate` (bundle `doc4-trade-finance`) |
-| **Hrz5** Observability/Audit | `agent-observability` | `AuditSinkPort` | `POST /v1/audit` |
-| **Hrz7** Human-Review Console | `human-review-console` | `ReviewRouterPort` | `POST /v1/service/reviews` (via `review-kit`) |
+| `agent-guardrail-gateway` | `agent-guardrail-gateway` | `GuardrailPort`, `PIIRedactionPort` | `POST /v1/guardrail/screen` |
+| `enterprise-knowledge-base` | `enterprise-knowledge-base` | `RulesRetrievalPort` | `POST /v1/search` |
+| `model-quality-gate` AI Quality | `model-quality-gate` | `EvaluationGatePort` | `POST /v1/evaluations`, `POST /v1/gate` (bundle `doc4-trade-finance`) |
+| `agent-observability` | `agent-observability` | `AuditSinkPort` | `POST /v1/audit` |
+| `human-review-console` | `human-review-console` | `ReviewRouterPort` | `POST /v1/service/reviews` (via `review-kit`) |
 
 The `platform` adapters (`adapters/platform/`) are thin HTTP clients whose JSON field names
 mirror the domain dataclasses exactly (enums as strings), so swapping from the direct-GCP
-adapter to the remote client is a binding change, never a domain change. Doc4 also ships an
-Hrz3 `agent-registry` client (`AgentRegistryPort` bound to `RemoteRegistryAdapter`, rule R4)
+adapter to the remote client is a binding change, never a domain change. `trade-finance-checker` also ships an
+`agent-registry` client (`AgentRegistryPort` bound to `RemoteRegistryAdapter`, rule R4)
 so a platform deployment can publish and resolve its A2A card centrally; no runtime path
-calls it and the card is self-served at `/.well-known/agent-card.json`, which is why Hrz3 is
-not among Doc4's mandatory dependencies in the catalog.
+calls it and the card is self-served at `/.well-known/agent-card.json`, which is why `agent-registry` is
+not among `trade-finance-checker`'s mandatory dependencies in the catalog.
 
 ---
 

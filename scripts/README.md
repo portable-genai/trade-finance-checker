@@ -1,4 +1,4 @@
-# Demo scripts - Doc4 trade-finance documentary-credit examination
+# Demo scripts - `trade-finance-checker` trade-finance documentary-credit examination
 
 All scripts are SDK-free and run against the in-process `local` stack (no Google Cloud,
 no API key). Run them from the repo root with the package and test fixtures on the path:

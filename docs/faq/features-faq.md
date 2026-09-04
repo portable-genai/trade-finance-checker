@@ -5,7 +5,7 @@ LLM, and, importantly, where its responsibilities **stop** and a sibling catalog
 over. Cross-references: [`README.md`](../../README.md), [`DEMO.md`](../../DEMO.md),
 [`COMPLIANCE.md`](../../COMPLIANCE.md).
 
-### What does Doc4 actually produce?
+### What does `trade-finance-checker` actually produce?
 
 A cited **discrepancy report** (`DiscrepancyReport`). From a parsed Letter of Credit and the
 presented document set (invoice, bill of lading, insurance certificate, packing list, ...) it
@@ -29,7 +29,7 @@ design (the "deterministic domain service" pattern), tested in `test_detector.py
 No. Every report sets `requires_human_review=True` (maker-checker, P-06); the agent proposes
 and a qualified officer disposes (pay / refuse / waive). HIGH/CRITICAL discrepancies *raise*
 the bar (`Decision.ESCALATED`); they never lower it and never auto-execute. The escalation is
-**routed** to the Hrz7 Human-Review and Maker-Checker Console (rule R8, via `review-kit`),
+**routed** to the `human-review-console` (rule R8, via `review-kit`),
 not terminated in a per-repo boolean.
 
 ### Which capabilities does this repo own vs integrate from the catalog?
@@ -39,25 +39,25 @@ examination logic and its outputs. It **integrates** (via the `platform` profile
 adapters) several cross-cutting concerns owned by sibling platform systems; do not rebuild
 these in a fork:
 
-| Concern | Owned by (catalog id / repo) | Doc4's role |
+| Concern | Owned by (catalog id / repo) | `trade-finance-checker`'s role |
 |---|---|---|
-| Runtime guardrail: PII redaction, prompt-injection / jailbreak defense | **Hrz1** `agent-guardrail-gateway` | consumes it on every check (input + output screen), rule R1 |
-| Governed UCP600 rule set / ACL-aware RAG with citations | **Hrz2** `enterprise-knowledge-base` | retrieves UCP600 articles from it, never vendors them (rule R3) |
-| Agent registry, versioning, identity, entitlements | **Hrz3** `agent-registry` | publishes its A2A AgentCard for discovery |
-| AI-quality / eval / model-risk promotion gate | **Hrz4** `model-quality-gate` | its eval metrics gate promotion (P-08); the offline gate mirrors it |
-| Observability + immutable WORM prompt/response audit | **Hrz5** `agent-observability` | writes audit events to it; traces spans through it (rule R2) |
-| Human-review & maker-checker console | **Hrz7** `human-review-console` | routes every `requires_human_review` escalation to it (rule R8) |
-| Regulatory Q&A / control checklists | **Rsk1** `compliance-advisory` | consumes it for regulatory compliance checks |
-| On-prem, CPU-only DLP scrub before egress | **Rsk6** `onprem-dlp` | the sovereign-DLP option behind the redaction port (its checksum-gated packs are ported here) |
+| Runtime guardrail: PII redaction, prompt-injection / jailbreak defense | `agent-guardrail-gateway` | consumes it on every check (input + output screen), rule R1 |
+| Governed UCP600 rule set / ACL-aware RAG with citations | `enterprise-knowledge-base` | retrieves UCP600 articles from it, never vendors them (rule R3) |
+| Agent registry, versioning, identity, entitlements | `agent-registry` | publishes its A2A AgentCard for discovery |
+| AI-quality / eval / model-risk promotion gate | `model-quality-gate` | its eval metrics gate promotion (P-08); the offline gate mirrors it |
+| Observability + immutable WORM prompt/response audit | `agent-observability` | writes audit events to it; traces spans through it (rule R2) |
+| Human-review & maker-checker console | `human-review-console` | routes every `requires_human_review` escalation to it (rule R8) |
+| Regulatory Q&A / control checklists | `compliance-advisory` | consumes it for regulatory compliance checks |
+| On-prem, CPU-only DLP scrub before egress | `onprem-dlp` | the sovereign-DLP option behind the redaction port (its checksum-gated packs are ported here) |
 
 So the guardrail, knowledge base, audit sink, eval platform, and review console are
 *dependencies*, not features of this repo.
 
 ### How does this relate to the other document-diligence systems in the catalog?
 
-Doc4 is trade-finance document examination. It shares the hexagonal common base with the other
-LND / document-diligence verticals: **Doc1** CDD + Source-of-Wealth (the reference build this
-repo was audited against), **Doc2** credit-memo / underwriting assistant, and **Doc5**
+`trade-finance-checker` is trade-finance document examination. It shares the hexagonal common base with the other
+LND / document-diligence verticals: `cdd-sow-research` CDD + Source-of-Wealth (the reference build this
+repo was audited against), `credit-memo-drafting` credit-memo / underwriting assistant, and `loan-document-intelligence`
 loan / mortgage document intelligence. The reusable core (citations, grounding, the
 deterministic engine, audit, eval, maker-checker) transfers between them; each replaces the
 artifact models and prompts and retunes the policy/taxonomy. Check

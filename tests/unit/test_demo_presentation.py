@@ -1,4 +1,4 @@
-"""Contract for the canonical fictional presentation used by the Doc4 UI.
+"""Contract for the canonical fictional presentation used by the trade-finance-checker UI.
 
 The UI imports ``eval/samples/presentation.json`` directly, so this test exercises the
 same request a user submits with "Check presentation".  It guards against changing the

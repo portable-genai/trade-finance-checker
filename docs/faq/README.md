@@ -1,7 +1,7 @@
 # FAQ index
 
 Answers to the questions different teams ask when evaluating, adopting, or reviewing this
-repository (Doc4, the UCP600 Trade-Finance Document Checker) as a common base. Each file is
+repository (`trade-finance-checker`, the UCP600 Trade-Finance Document Checker) as a common base. Each file is
 written for a specific audience; skim the one that matches your role.
 
 | FAQ | For | Answers |

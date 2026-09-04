@@ -1,6 +1,6 @@
 # On-prem migration checklist (P-12 exit story)
 
-Doc4's exit / portability promise is concrete, not aspirational: every managed-service port
+`trade-finance-checker`'s exit / portability promise is concrete, not aspirational: every managed-service port
 has an on-prem placeholder adapter that **constructs cleanly and satisfies the same
 Protocol** as the GCP adapter, and the contract tests prove it. Migrating to **Google
 Distributed Cloud** (the on-prem target) is a matter of filling in those placeholders : the

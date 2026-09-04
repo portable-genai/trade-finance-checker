@@ -1,15 +1,15 @@
 # Common-base practices audit
 
 - **Repo:** `trade-finance-checker`
-- **Catalog id:** Doc4 (package `trade_finance_checker`, env prefix `TRADE_FINANCE`)
+- **Catalog id:** `trade-finance-checker` (package `trade_finance_checker`, env prefix `TRADE_FINANCE`)
 - **Authoritative source:** reconciled to the maintainer's cross-repository audit matrix, authoritative on verdicts.
 - **Catalogue reference:** [`common-base-practices.md`](https://github.com/portable-genai/.github/blob/main/common-base-practices.md) (checks A1..G7)
-- **Note:** This repo was audited against the reference build `cdd-sow-research` (Doc1). Each
+- **Note:** This repo was audited against the reference build `cdd-sow-research`. Each
   check below was re-run against the current tree (greps run, files opened, the offline gate
   executed), with this repo's package (`trade_finance_checker`) and env prefix (`TRADE_FINANCE`)
   substituted into every catalogue **Check** command.
 
-Applicability: Doc4 ships a UI (`ui/`) and Terraform (`infra/terraform/`), so `[ui]` and
+Applicability: `trade-finance-checker` ships a UI (`ui/`) and Terraform (`infra/terraform/`), so `[ui]` and
 `[infra]` checks apply. C8 is `[ui]` but N-A because this repo does not own a login (identity is
 IAP-verified at the edge, plus seeded local personas). **Load-bearing** checks (a FAIL breaks a
 shared catalog guarantee) are A1-A6, C1-C5, D1-D3 and E1: all 15 are
@@ -45,7 +45,7 @@ PASS, with **no load-bearing PARTIAL or FAIL left**.
 | **D3** Whole gate runs offline, zero org secrets `[all]` **(load-bearing)** | PASS | `ci.yaml` + `eval-gate.yaml` set `TRADE_FINANCE_PROFILE: local`, reference no `secrets.`; empirically the offline suite (104 passed) and `python eval/run_eval.py` (GATE: PASS) run with no GCP SDK and no credentials. |
 | **D4** Non-root, minimal, healthchecked container `[infra]` | PASS | `Dockerfile`: multi-stage, `USER appuser` (uid 10001), `HEALTHCHECK` against `/healthz`, `EXPOSE 8094`, `TRADE_FINANCE_PROFILE=gcp`; runtime stage copies only the venv (no build toolchain). |
 | **D5** Deploy-time residency/sovereignty, parameterised `[infra]` | PASS | Singapore pinning, CMEK, VPC-SC and WORM controls are CI-gated by Terraform fmt/init/validate. Live enforcement still needs a named apply and evidence. |
-| **E1** Offline eval smoke guards merge; Hrz4 owns promotion `[agentic]` **(load-bearing)** | PASS | `eval/run_eval.py` has the `--mode smoke|gate` split via the shared `agent-eval-kit` scaffold; `remote_evaluation.py` re-based on the shared `PromotionGateClient` (registered bundle `doc4-trade-finance` unchanged; the contract test's example-count fixture was corrected from the stale `n` key to the `n_examples` the Hrz4 server actually emits); gate mode refuses to run outside `TRADE_FINANCE_PROFILE=platform|gcp`. |
+| **E1** Offline eval smoke guards merge; `model-quality-gate` owns promotion `[agentic]` **(load-bearing)** | PASS | `eval/run_eval.py` has the `--mode smoke|gate` split via the shared `agent-eval-kit` scaffold; `remote_evaluation.py` re-based on the shared `PromotionGateClient` (registered bundle `doc4-trade-finance` unchanged; the contract test's example-count fixture was corrected from the stale `n` key to the `n_examples` the `model-quality-gate` server actually emits); gate mode refuses to run outside `TRADE_FINANCE_PROFILE=platform|gcp`. |
 | **E2** Safety metric with strictest threshold, no false green `[agentic]` | PASS | `pii_safety >= 0.99` is the strictest threshold, and it is falsifiable: `eval/run_eval.py` runs the REAL `LocalRegexRedactionAdapter` rather than a stand-in that could mask exactly the literal tokens `score_pii_safety` scans for, which would let the metric pass regardless of what the production redactor does. The literal check itself is not the risk to guard against: a literal is a sound oracle against the REAL redactor, and it is deliberately kept (`_planted_pii_leak`) precisely because scoring off the shared pack alone reintroduces a subtler version of the same tautology (detector and redactor read one source, so neither sees a defect in that source). The two halves fail on different things, which is the point. Falsifiability is demonstrated per market against both a disabled redactor and a defective pack row (see C4), and the metric scans only DERIVED surfaces (the produced narrative, the audit records) never an echo of the planted input, so it measures the boundary rather than the fixture. |
 | **E3** Fixtures and golden data obviously fictional `[all]` | PASS | `eval/datasets/golden_presentations.jsonl` is headed "Synthetic and clearly fictional" with fake LC ids (`LC-G-001`) and synthetic goods; fixtures use obviously-fictional trade parties. |
 | **F1** Demo is code, offline, one command, presenter-paced `[all]` | PASS | `make demo` runs offline (`TRADE_FINANCE_PROFILE=local`) building the report JSON via the real `TradeCheckService` and rendering static audit-first HTML; `scripts/trade_finance_demo_playwright.py` + `scripts/trade_finance_demo_server.py` provide a live walkthrough; no cloud or API key. |
@@ -55,7 +55,7 @@ PASS, with **no load-bearing PARTIAL or FAIL left**.
 | **G2** Compliance mapping table + adopter-owned crosswalk `[all]` | PASS | COMPLIANCE includes an explicitly adopter-owned UCP600/MAS crosswalk with applicability, owner and evidence fields. |
 | **G3** Documented, mechanised fork path `[all]` | PASS | `docs/ADOPTING.md` gives the kernel-vs-vertical boundary, the core-vs-adopter-owned file list, the mechanical-rebrand walkthrough and the human-decisions checklist; `scripts/rename_fork.py` rewrites the package (`trade_finance_checker`), the CLI (`trade-finance-checker`), the `TRADE_FINANCE_` env prefix, the resource stem and the distribution name in one pass, dry-run by default (docs swept only under `--include-docs`). Verified by execution: `--package x_test --cli x-test --env-prefix XTEST --resource x-test --dry-run` exits 0 with a sensible plan (55 files, 351 replacements) and writes nothing (git tree unchanged). |
 | **G4** Retired `[all]` | N-A (retired) | Retired practice. Releases are tracked by git tag and the `pyproject.toml` version. |
-| **G5** Role-specific FAQs referencing sibling systems `[all]` | PASS | `docs/faq/` carries a README index plus five role FAQs (security, portability, features, adoption, compliance), each naming the owning catalog id for adjacent capabilities (Hrz1 guardrail, Hrz2 UCP600 KB, Hrz3 registry, Hrz4 eval gate, Hrz5 audit, Hrz7 review console, Rsk1/Rsk3/Rsk6/Rgc9) rather than duplicating them, and each honest about this repo's own open items (C6 headers, A7 kernel split, B4 detector wiring, F2/F3, G2 crosswalk). |
+| **G5** Role-specific FAQs referencing sibling systems `[all]` | PASS | `docs/faq/` carries a README index plus five role FAQs (security, portability, features, adoption, compliance), each naming the owning catalog id for adjacent capabilities (`agent-guardrail-gateway`, `enterprise-knowledge-base` UCP600 KB, `agent-registry`, `model-quality-gate`, `agent-observability`, `human-review-console`, `compliance-advisory`, `architecture-validator`, `onprem-dlp`, `operational-resilience-mapping`) rather than duplicating them, and each honest about this repo's own open items (C6 headers, A7 kernel split, B4 detector wiring, F2/F3, G2 crosswalk). |
 | **G6** Contribution docs cover full extension touch list `[all]` | PASS | CONTRIBUTING lists adapter, check and sub-service touch points and names the enforcing parity test. |
 | **G7** Markdown discipline: minimise em-dashes, validate mermaid `[all]` | PASS | 0 em-dashes across every `*.md` and `docs/*.md`; the repo uses the " : " convention consistently. |
 
@@ -67,7 +67,7 @@ that external set: F2's browser stage runs locally against the repo's own demo s
 
 ## Gaps carried to systems/
 
-The following gaps should be recorded on the Doc4 row of
+The following gaps should be recorded on the `trade-finance-checker` row of
 the maintainer's per-system register under
 `Capability gaps`. Load-bearing gaps (break a shared catalog guarantee) are marked.
 

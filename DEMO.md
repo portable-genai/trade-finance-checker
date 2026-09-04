@@ -1,6 +1,6 @@
-# Demo guide - Doc4 Trade-Finance Document Checker
+# Demo guide - `trade-finance-checker` Trade-Finance Document Checker
 
-Step-by-step scripts for demoing Doc4 two ways:
+Step-by-step scripts for demoing `trade-finance-checker` two ways:
 
 - **Demo A - Documentary-credit examination over several presentation rounds** (the
   headline flow): a beneficiary presents documents under a Letter of Credit, the

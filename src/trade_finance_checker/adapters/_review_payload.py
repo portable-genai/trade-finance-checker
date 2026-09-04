@@ -1,11 +1,11 @@
 """Shared conversion from an escalated discrepancy report to an ``review-kit`` Review payload.
 
-Lives in the adapter layer (not the pure domain) because it depends on the kit. Redacts the
-subject descriptor, summary and citation snippets before they leave the process (R1 / P-04
-boundary), using the same jurisdiction pattern set the redaction adapter uses
-(``domain/pii_patterns``), so no raw trade-party identifier reaches Hrz7 over the wire; Hrz7
-redacts again before its own audit write (defense in depth). The maker (the checker service that
-originated the report) and the tenant are asserted here and trusted by Hrz7 because this is an
+Lives in the adapter layer (not the pure domain) because it depends on the kit. Redacts the subject
+descriptor, summary and citation snippets before they leave the process (R1 / P-04 boundary), using
+the same jurisdiction pattern set the redaction adapter uses (``domain/pii_patterns``), so no raw
+trade-party identifier reaches human-review-console over the wire; human-review-console redacts
+again before its own audit write (defense in depth). The maker (the checker service that originated
+the report) and the tenant are asserted here and trusted by human-review-console because this is an
 authenticated S2S caller (per-hop OBO is the deferred next layer).
 """
 
@@ -94,7 +94,9 @@ def _report_citations(report: DiscrepancyReport) -> list[Citation]:
 
 
 def report_to_review(report: DiscrepancyReport, *, maker: str, tenant: str = "") -> Review:
-    """Build the review a producer submits to Hrz7 when a discrepancy report escalates."""
+    """Build the review a producer submits to human-review-console when a discrepancy report
+    escalates.
+    """
     summary_terms = report.summary
     descriptor = (
         f"Trade-finance discrepancy report for LC {report.lc_number} "

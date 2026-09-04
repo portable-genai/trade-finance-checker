@@ -66,7 +66,7 @@ that nonetheless satisfy every Protocol and construct with a single `Settings` a
 *interface contract* for a sovereign migration is proven and enforced by CI today. The actual
 on-prem implementations are the migration work, scoped in
 [`docs/onprem-migration.md`](../onprem-migration.md). This repo is not the sovereign-exit
-*planner* (that is **Rgc9** `operational-resilience-mapping` and its `domain/concentration_exit/`
+*planner* (that is `operational-resilience-mapping` and its `domain/concentration_exit/`
 module: APRA CPS 230, MAS/HKMA outsourcing); this repo is one of the systems whose exit that
 planner reasons about.
 
@@ -76,7 +76,7 @@ No: residency is a deploy-time pin (the region, an Org Policy resource-location 
 CMEK, VPC-SC), and portability is the ability to change *where* the stack runs by
 configuration. They are orthogonal. `infra/terraform/` pins `var.region` to `asia-southeast1`
 with a fail-fast validation, and a second enterprise or a second region is a tfvars change,
-not a fork. The residency-violation CI gate is **Rsk3** `architecture-validator` and its
+not a fork. The residency-violation CI gate is `architecture-validator` and its
 `domain/residency/` module, which a fork should run rather than re-implement.
 
 ### What is NOT yet portable / an executable claim?

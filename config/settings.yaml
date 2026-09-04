@@ -203,7 +203,7 @@ adapters:
     live: trade_finance_checker.adapters.local.entitlements:LocalAclAdapter
     platform: trade_finance_checker.adapters.platform.remote_entitlements:RemoteAclAdapter
     onprem: trade_finance_checker.adapters.onprem.entitlements:OnPremAclAdapter
-  review_router:                          # route requires_human_review to the Hrz7 console (R8)
+  review_router:                          # route requires_human_review to the human-review-console (R8)
     gcp: trade_finance_checker.adapters.platform.review_router:PlatformReviewRouter
     local: trade_finance_checker.adapters.local.review_router:LocalReviewRouter
     live: trade_finance_checker.adapters.local.review_router:LocalReviewRouter
