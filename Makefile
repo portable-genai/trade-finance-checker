@@ -78,6 +78,12 @@ demo:
 eval:
 	$(ACT) && python eval/run_eval.py
 
+evals-doc: ## Regenerate docs/evals.md from the rubrics and the golden set.
+	$(ACT) && python scripts/render_evals_doc.py
+
+evals-doc-check: ## Fail when docs/evals.md and the artifacts it describes disagree.
+	$(ACT) && python scripts/render_evals_doc.py --check
+
 portability: ## Execute the bounded offline/profile portability proof.
 	$(ACT) && PYTHONPATH=src python scripts/portability_demo.py
 
@@ -93,7 +99,7 @@ plugin: ## Render the Agent Plugins 1.0.0 directory from this repo's own declara
 mcp-serve: ## Serve the governed tool catalog over MCP 2026-07-28 (stdio; needs [gcp]).
 	python -m trade_finance_checker.mcp
 
-check: lint test eval demo-selftest portability plugin ## The full offline quality gate (no node, no cloud).
+check: lint test eval evals-doc-check demo-selftest portability plugin ## The full offline quality gate (no node, no cloud).
 
 ui-install:
 	npm ci --prefix ui

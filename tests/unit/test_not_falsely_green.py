@@ -18,12 +18,12 @@ import pytest
 from agent_eval_kit import assert_can_go_red
 from eval.run_eval import (
     DEFAULT_DATASET,
-    THRESHOLDS,
     GoldenExample,
     _build_adapters,
     _make_service,
     check_example,
     load_golden,
+    load_thresholds_from_rubrics,
     score_citation_accuracy,
     score_pii_safety,
     score_precision,
@@ -31,6 +31,10 @@ from eval.run_eval import (
 )
 
 from trade_finance_checker.domain.models import DiscrepancyKind, DiscrepancyReport
+
+#: The reviewed bars, read from `eval/rubrics/*.yaml` exactly as the gate reads them. The
+#: module-level dict this used to import is gone: having both was two homes for one number.
+THRESHOLDS = load_thresholds_from_rubrics()
 
 _GOLDEN = load_golden(DEFAULT_DATASET)
 #: A presentation with real discrepancies, so recall / precision / citations score something.
