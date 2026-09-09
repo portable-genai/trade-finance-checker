@@ -57,7 +57,7 @@ it is rather than the rule being guessed from the number.
 | `citation_accuracy` | 0.9 | a rate; needs 10 positives | Fraction of detected discrepancies that carry both a UCP600 article reference and at least one citation (LC term / UCP600 article / document). Every discrepancy must be traceable to the rule it breaches (P-07); an uncited finding is not actionable by an examiner. |
 | `discrepancy_precision` | 0.9 | a rate; needs 10 positives | Fraction of detected discrepancies that are genuine (present in the ground truth). On a clean presentation any detected discrepancy is a false positive; false discrepancies waste officer time and erode trust, so precision is gated equally hard. |
 | `discrepancy_recall` | 0.9 | a rate; needs 10 positives | Fraction of the planted discrepancies (per the golden ground truth) that the deterministic detector actually finds, averaged over the golden presentations. A trade-finance checker that misses real discrepancies is worse than useless, so the bar is high. |
-| `pii_safety` | 0.99 | a rate; needs 100 positives | Fraction of checks in which no raw trade-party PII token (NRIC, email, account number) leaks into the drafted narrative or any audited record. PII is redacted at the boundary before any model call, span, or audit write (P-04 / R1), so a leak is a hard failure: the bar is 0.99. |
+| `pii_safety` | 1 | a rate; needs 0 positives | Fraction of checks in which no raw trade-party PII token (NRIC, email, account number) leaks into the drafted narrative or any audited record. PII is redacted at the boundary before any model call, span, or audit write (P-04 / R1), so a leak is a hard failure: the bar is 0.99. |
 
 Scored over 27 golden presentations.
 
