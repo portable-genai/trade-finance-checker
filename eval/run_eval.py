@@ -55,7 +55,12 @@ from pathlib import Path
 # The --mode smoke|gate scaffold + aligned report rendering come from the shared
 # agent-eval-kit commons; this script keeps only its own offline
 # evaluator and gate runner.
-from agent_eval_kit import eval_main
+from agent_eval_kit import (
+    assert_denominator_supports,
+    dataset_digest,
+    eval_main,
+    load_rubrics,
+)
 
 from trade_finance_checker.adapters.local.redaction import LocalRegexRedactionAdapter
 from trade_finance_checker.config import PiiSettings, Settings
@@ -85,14 +90,13 @@ from trade_finance_checker.envread import read_env_setting
 # --------------------------------------------------------------------------- #
 # Thresholds : the promotion bar (SPEC A4 / P-08). Mirrors eval/rubrics/*.yaml.
 # --------------------------------------------------------------------------- #
-THRESHOLDS: dict[str, float] = {
-    "discrepancy_recall": 0.90,
-    "discrepancy_precision": 0.90,
-    "citation_accuracy": 0.90,
-    "pii_safety": 0.99,
-}
+#: Where every bar lives. Not a dict here: a threshold written as a Python literal carries no
+#: argument. The rubric files carry the reasoning beside the number, and
+#: `agent_eval_kit.load_rubrics` reads them. What was here before was BOTH a dict and a loader
+#: that overlaid two rubric files on top of it, falling back to the dict when PyYAML was missing.
 
 _REPO_ROOT = Path(__file__).resolve().parent.parent
+RUBRICS = _REPO_ROOT / "eval" / "rubrics"
 DEFAULT_DATASET = _REPO_ROOT / "eval" / "datasets" / "golden_presentations.jsonl"
 
 
@@ -186,29 +190,18 @@ def load_golden(path: Path) -> list[GoldenExample]:
 
 
 def load_thresholds_from_rubrics() -> dict[str, float]:
-    """Read thresholds from ``eval/rubrics/*.yaml`` when PyYAML is available.
+    """Read every metric's reviewed bar out of ``eval/rubrics/*.yaml``. No fallback, by design."""
+    return load_rubrics(RUBRICS).thresholds()
 
-    Falls back to the in-code ``THRESHOLDS`` so the gate still runs if PyYAML is missing.
-    """
-    thresholds = dict(THRESHOLDS)
-    try:
-        import yaml  # type: ignore[import-untyped]
-    except ImportError:
-        return thresholds
 
-    rubric_dir = _REPO_ROOT / "eval" / "rubrics"
-    for name in ("discrepancy_detection.yaml", "citation_accuracy.yaml"):
-        rubric_path = rubric_dir / name
-        if not rubric_path.exists():
-            continue
-        doc = yaml.safe_load(rubric_path.read_text(encoding="utf-8")) or {}
-        metric = doc.get("metric")
-        if isinstance(metric, str) and "threshold" in doc:
-            thresholds[metric] = float(doc["threshold"])
-        for companion, spec in (doc.get("companion_metrics") or {}).items():
-            if isinstance(spec, dict) and "threshold" in spec:
-                thresholds[str(companion)] = float(spec["threshold"])
-    return thresholds
+#: The metrics this runner scores, in report order. Named so `assert_covers` can compare them
+#: with the rubric set in BOTH directions.
+SCORED: tuple[str, ...] = (
+    "discrepancy_recall",
+    "discrepancy_precision",
+    "citation_accuracy",
+    "pii_safety",
+)
 
 
 # --------------------------------------------------------------------------- #
@@ -584,11 +577,14 @@ class _PerMetric:
 
 
 def run_offline(dataset: Path, thresholds: dict[str, float]) -> EvalReport:
+    # The rubrics and the scored set must agree in BOTH directions before anything is scored.
+    load_rubrics(RUBRICS).assert_covers(SCORED)
     examples = load_golden(dataset)
     adapters = _build_adapters()
     service = _make_service(adapters)
 
-    agg: dict[str, _PerMetric] = {m: _PerMetric() for m in THRESHOLDS}
+    agg: dict[str, _PerMetric] = {metric: _PerMetric() for metric in SCORED}
+    produced: dict[str, int] = {"claimed_kinds": 0}
     print(
         f"Running offline eval gate over {len(examples)} golden presentations "
         f"(evaluator=TradeCheckService).\n"
@@ -599,6 +595,8 @@ def run_offline(dataset: Path, thresholds: dict[str, float]) -> EvalReport:
         new_events = adapters.audit.events[before:]
         agg["discrepancy_recall"].scores.append(score_recall(report, example))
         agg["discrepancy_precision"].scores.append(score_precision(report, example))
+        # What precision actually divides by: the discrepancy kinds the detector claimed.
+        produced["claimed_kinds"] += len({d.kind.value for d in report.discrepancies})
         agg["citation_accuracy"].scores.append(score_citation_accuracy(report))
         agg["pii_safety"].scores.append(score_pii_safety(report, example, new_events))
         _verdict_note(report, example)
@@ -607,8 +605,8 @@ def run_offline(dataset: Path, thresholds: dict[str, float]) -> EvalReport:
         EvalMetricResult(
             metric=metric,
             score=round(agg[metric].mean, 4),
-            threshold=thresholds.get(metric, THRESHOLDS[metric]),
-            passed=round(agg[metric].mean, 4) >= thresholds.get(metric, THRESHOLDS[metric]),
+            threshold=thresholds[metric],
+            passed=round(agg[metric].mean, 4) >= thresholds[metric],
         )
         for metric in (
             "discrepancy_recall",
@@ -617,7 +615,39 @@ def run_offline(dataset: Path, thresholds: dict[str, float]) -> EvalReport:
             "pii_safety",
         )
     )
-    return EvalReport(dataset=str(dataset), results=results, n_examples=len(examples))
+    # The corpus must be able to express every bar that claims a rate, and the denominators
+    # are NOT the case count. `discrepancy_recall` is a fraction over the discrepancy KINDS a
+    # reviewer expected, of which the corpus now carries twenty-seven; it carried eight, and a
+    # 0.90 bar needs ten before it can tolerate a single miss, so the bar was arithmetically
+    # identical to 1.0. `discrepancy_precision` is measured against the clean presentations,
+    # which are what a false positive can fire on.
+    expected_kinds = sum(len(example.expected_discrepancy_kinds) for example in examples)
+    clean = sum(1 for example in examples if not example.expected_discrepancy_kinds)
+    assert_denominator_supports(
+        thresholds["discrepancy_recall"], expected_kinds, metric="discrepancy_recall"
+    )
+    # Precision divides by the kinds the detector CLAIMED, not by the clean cases, so that is
+    # the denominator the rule is applied to. The clean cases are what a false positive can fire
+    # on, which is a different requirement and is asserted separately: a corpus with nothing
+    # clean in it cannot catch a detector that cries wolf, whatever its precision reads.
+    assert_denominator_supports(
+        thresholds["discrepancy_precision"],
+        produced["claimed_kinds"],
+        metric="discrepancy_precision",
+    )
+    if clean < 3:
+        raise SystemExit(
+            f"{dataset}: only {clean} clean presentation(s). Precision is scored on whether the "
+            "detector stays silent on a file with nothing wrong with it, and a corpus with "
+            "almost nothing clean cannot catch one that cries wolf."
+        )
+    return EvalReport(
+        dataset=str(dataset),
+        results=results,
+        n_examples=len(examples),
+        dataset_digest=dataset_digest(dataset),
+        evaluator="offline heuristic (no cloud creds)",
+    )
 
 
 def _verdict_note(report: DiscrepancyReport, example: GoldenExample) -> None:

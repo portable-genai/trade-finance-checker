@@ -76,7 +76,7 @@ a stripped panel hook. If you diverge, keep the hooks: they are the contract bot
 ### Does the CI run for my fork out of the box?
 
 Yes. CI and the eval gate run on the `local` profile with **no cloud credentials and no org
-secrets** (`ci.yaml` / `eval-gate.yaml` set `TRADE_FINANCE_PROFILE: local` and reference no
+secrets** (`gate.yaml` sets `TRADE_FINANCE_PROFILE: local` and references no
 `secrets.`), so a fork's build is green immediately. You add secrets only when you wire the
 `gcp` / `platform` profiles. Note the eval gate measures the *reference* trade-finance vertical
 until you rebuild the golden set; that is an explicit adoption step, not a silent pass.
