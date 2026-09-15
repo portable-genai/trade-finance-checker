@@ -7,7 +7,7 @@ output "region" {
 
 output "kms_key" {
   description = "Regional CMEK key id for TRADE_FINANCE_KMS_KEY."
-  value       = google_kms_crypto_key.tfc.id
+  value       = one(google_kms_crypto_key.tfc[*].id)
 }
 
 output "documentai_processor" {
