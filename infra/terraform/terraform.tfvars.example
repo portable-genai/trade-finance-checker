@@ -12,6 +12,11 @@ region          = "asia-southeast1"
 # WORM audit retention (~7 years). Locking is irreversible : confirm before apply.
 audit_retention_days = 2557
 
+# The WORM lock has NO default: a plan refuses until it is stated here. true is the compliant
+# production form and is IRREVERSIBLE for the retention window; an evaluation stack that must
+# stay destroyable states false (NOT compliant).
+worm_locked = true
+
 # CMEK rotation period (90 days).
 kms_rotation_period = "7776000s"
 
