@@ -61,6 +61,22 @@ variable "audit_retention_days" {
   default     = 2557
 }
 
+variable "worm_locked" {
+  description = <<-EOT
+    Lock the WORM audit bucket. WARNING: LOCKING IS IRREVERSIBLE. With true, the bucket and its
+    retention window can NEVER be reduced or deleted until every entry ages out, not even with
+    project-owner rights. true is the compliant production form; false keeps the stack
+    destroyable and is NOT compliant.
+
+    There is deliberately NO DEFAULT. A plan refuses until the deployment names the lock,
+    because an unset value may take a reviewed default and may never take an irreversible one.
+    This stack used to hard-code the lock, so its first apply anywhere locked the bucket for the
+    whole retention window with no way for a deployment to decline. Every stack that has this
+    control spells it `worm_locked`, and none of them defaults it.
+  EOT
+  type        = bool
+}
+
 variable "kms_rotation_period" {
   type        = string
   description = "CMEK key rotation period."

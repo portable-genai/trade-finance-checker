@@ -38,7 +38,7 @@ residency review point.
 
 ## WORM bucket warning (P-07)
 
-`logging_worm.tf` sets `locked = true` with `retention_days = 2557`. **Locking is
+`worm_locked = true` locks the bucket at `retention_days = 2557`, and it has no default. **Locking is
 irreversible**: retention cannot be shortened and the bucket cannot be deleted until
 retention elapses. Confirm the retention value before apply.
 
