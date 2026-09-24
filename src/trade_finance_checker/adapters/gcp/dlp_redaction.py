@@ -8,7 +8,7 @@ regional (``projects/{project}/locations/{region}``) to keep inspection inside S
 for Transaction Banking residency.
 
 If inspect/de-identify templates are configured in settings, they are used as-is.
-Otherwise the adapter builds an inline configuration that masks the built-in info types most
+Otherwise the adapter builds an inline configuration that replaces the built-in info types most
 relevant to trade finance (names, emails, phone numbers, IBANs, SWIFT codes) plus the
 national identifiers and account-number shape for the jurisdictions configured in
 ``settings.pii.jurisdictions``, sourced from ``domain/pii_patterns.py``. That shared source
@@ -63,7 +63,21 @@ _DEFAULT_INFO_TYPES: tuple[str, ...] = (
 # single identifier is not transformed twice under two names.
 _BUILTIN_EQUIVALENTS: frozenset[str] = frozenset({"EMAIL_ADDRESS", "PHONE_NUMBER"})
 
-_MASKING_CHAR = "#"
+# Tuned against false positives (runtime-control contract, 2026-09-24). A presentation names
+# rules, instruments, bank roles, carriers and vessels, and at POSSIBLE likelihood DLP could take
+# "Issuing Bank", "Ever Given" or "ISBP" for a person and mask it, so the model examined a
+# document the user did not present. Three changes: only LIKELY findings are masked; a match
+# is REPLACED with its info-type name rather than a run of mask characters, so the model still
+# reads the document's shape; and a PERSON_NAME finding containing this domain's vocabulary is
+# excluded. infra/terraform/dlp.tf carries the same tuning for the template it creates.
+_MIN_LIKELIHOOD = "LIKELY"
+_DOMAIN_VOCABULARY_REGEX = (
+    r"(?i)\b(UCP ?600|ISBP|URR|URC|eUCP|ICC|SWIFT|MT ?7\d\d|Incoterms?|FOB|CIF|CFR|CIP|CPT|"
+    r"EXW|FCA|DAP|DPU|DDP|MAS|HKMA|Letter of Credit|Documentary Credit|Bill of Lading|"
+    r"Invoice|Packing List|Certificate|Beneficiary|Applicant|Issuing|Advising|Confirming|"
+    r"Nominated|Negotiating|Reimbursing|Bank|Port|Vessel|Voyage|Carrier|Shipping|Lines?|"
+    r"Terminal|Maersk|Evergreen|Ever Given|COSCO|Hapag|MSC)\b"
+)
 
 
 class DlpRedactionAdapter:
@@ -141,7 +155,9 @@ class DlpRedactionAdapter:
                 {
                     "info_type": {"name": info_type},
                     "regex": {"pattern": re2_pattern_for(info_type, pattern)},
-                    "likelihood": "POSSIBLE",
+                    # The pattern is specific enough to be a finding in its own right; it
+                    # must clear the LIKELY floor below or no identifier would be masked.
+                    "likelihood": "VERY_LIKELY",
                 }
             )
         return custom
@@ -151,13 +167,26 @@ class DlpRedactionAdapter:
         return {
             "info_types": [{"name": name} for name in _DEFAULT_INFO_TYPES],
             "custom_info_types": self._custom_info_types(),
-            "min_likelihood": "POSSIBLE",
+            "rule_set": [
+                {
+                    "info_types": [{"name": "PERSON_NAME"}],
+                    "rules": [
+                        {
+                            "exclusion_rule": {
+                                "regex": {"pattern": _DOMAIN_VOCABULARY_REGEX},
+                                "matching_type": "MATCHING_TYPE_PARTIAL_MATCH",
+                            }
+                        }
+                    ],
+                }
+            ],
+            "min_likelihood": _MIN_LIKELIHOOD,
             "include_quote": False,
         }
 
     def _inline_deidentify_config(self) -> dict[str, Any]:
-        # Mask every detected info type (built-in + the custom types) with a single
-        # masking character : irreversible, no surrogate to reverse. Custom names are
+        # Replace every detected info type (built-in + the custom types) with its name, e.g.
+        # "[PERSON_NAME]" : irreversible, no surrogate to reverse. Custom names are
         # de-duplicated because one info type may be declared under several shapes (HK's two
         # HKID forms), and a transformation names an info type once.
         # verify: https://cloud.google.com/dlp/docs/reference/rest/v2/DeidentifyConfig
@@ -172,11 +201,7 @@ class DlpRedactionAdapter:
                 "transformations": [
                     {
                         "info_types": all_info_types,
-                        "primitive_transformation": {
-                            "character_mask_config": {
-                                "masking_character": _MASKING_CHAR,
-                            }
-                        },
+                        "primitive_transformation": {"replace_with_info_type_config": {}},
                     }
                 ]
             }

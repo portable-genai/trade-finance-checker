@@ -24,19 +24,40 @@ from ...config import Settings
 from ...domain.models import RedactionFinding, RedactionResult
 from ...domain.pii_patterns import patterns_for
 
+#: Digit-run rows that an amount or a tariff code can look like. A trade document is full of
+#: both, so a match of one of these rows directly after a currency marker or an HS-code label
+#: is left alone: "SGD 90000000" used to reach the model as "SGD [SG_PHONE]", and "HS code
+#: 8471300000" as "HS code [BANK_ACCOUNT_NUMBER]". Each prefix is read up to the match only.
+_DIGIT_RUN_ROWS: frozenset[str] = frozenset({"PHONE_NUMBER", "SG_PHONE", "BANK_ACCOUNT_NUMBER"})
+_NOT_AN_IDENTIFIER_PREFIX = re.compile(
+    r"(?:[$€£¥]|\b(?:SGD|USD|HKD|AUD|JPY|EUR|GBP|CNY|RMB)|\bHS(?:\s+code)?:?)\s?$",
+    re.IGNORECASE,
+)
 
-def _mask_validated(
-    pattern: re.Pattern[str], info_type: str, validator: Callable[[str], bool], text: str
+
+def _mask(
+    pattern: re.Pattern[str],
+    info_type: str,
+    validator: Callable[[str], bool] | None,
+    text: str,
 ) -> tuple[str, int]:
-    """Mask only the matches of ``pattern`` in ``text`` that pass ``validator``."""
+    """Mask the matches of ``pattern`` in ``text`` that are identifiers; count them.
+
+    A checksum-gated row masks only the matches that pass its ``validator``; a digit-run row
+    skips a match that is an amount or an HS code by its prefix (see above).
+    """
     count = 0
 
     def _repl(match: re.Match[str]) -> str:
         nonlocal count
-        if validator(match.group(0)):
-            count += 1
-            return f"[{info_type}]"
-        return match.group(0)
+        if validator is not None and not validator(match.group(0)):
+            return match.group(0)
+        if info_type in _DIGIT_RUN_ROWS and _NOT_AN_IDENTIFIER_PREFIX.search(
+            match.string, 0, match.start()
+        ):
+            return match.group(0)
+        count += 1
+        return f"[{info_type}]"
 
     return pattern.sub(_repl, text), count
 
@@ -52,14 +73,8 @@ class LocalRegexRedactionAdapter:
         findings: list[RedactionFinding] = []
         redacted = text
         for info_type, pattern, validator in self._patterns:
-            if validator is None:
-                hits = pattern.findall(redacted)
-                if hits:
-                    redacted = pattern.sub(f"[{info_type}]", redacted)
-                    findings.append(RedactionFinding(info_type=info_type, count=len(hits)))
-            else:
-                # Checksum-gated: report only genuine identifiers under this info type.
-                redacted, count = _mask_validated(pattern, info_type, validator, redacted)
-                if count:
-                    findings.append(RedactionFinding(info_type=info_type, count=count))
+            # Checksum-gated rows report only genuine identifiers under their info type.
+            redacted, count = _mask(pattern, info_type, validator, redacted)
+            if count:
+                findings.append(RedactionFinding(info_type=info_type, count=count))
         return RedactionResult(text=redacted, findings=tuple(findings))

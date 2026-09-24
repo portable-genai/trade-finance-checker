@@ -14,7 +14,11 @@ which ports the service needs.
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Annotated, Any
 
+from fastapi import Depends
+
+from ..adapters.controls import DisclosingRedaction, RecordingReviewRouter
 from ..config import Container, Settings, build_container
 from ..domain.detector import DiscrepancyDetector
 from ..domain.services import TradeCheckService
@@ -40,12 +44,38 @@ def get_settings() -> Settings:
 # Service factories : assemble the service from the Container's ports.
 # Constructor argument order mirrors SPEC §5 exactly.
 # --------------------------------------------------------------------------- #
-def get_trade_check_service() -> TradeCheckService:
+def get_request_redaction() -> DisclosingRedaction:
+    """The redaction adapter for ONE request, wrapped so the response can disclose a change.
+
+    FastAPI resolves a dependency once per request, so the route and the service it builds
+    receive the same wrapper and the route reads what the service's redaction did.
+    """
+    return DisclosingRedaction(get_container().redaction)
+
+
+def get_request_review_router() -> RecordingReviewRouter:
+    """The review router for ONE request, wrapped so the response reports the hand-off."""
+    return RecordingReviewRouter(get_container().review_router)
+
+
+#: Injected by FastAPI; ``None`` when a getter is called directly (the MCP server does), which
+#: binds the container's adapters unwrapped.
+RequestRedaction = Annotated[DisclosingRedaction | None, Depends(get_request_redaction)]
+RequestReviewRouter = Annotated[RecordingReviewRouter | None, Depends(get_request_review_router)]
+
+
+def get_trade_check_service(
+    redaction: RequestRedaction = None, review_router: RequestReviewRouter = None
+) -> TradeCheckService:
     """TradeCheckService(extraction, rules, llm, guardrail, redaction, tracer, audit, acl)."""
-    return build_trade_check_service(get_container())
+    return build_trade_check_service(
+        get_container(), redaction=redaction, review_router=review_router
+    )
 
 
-def build_trade_check_service(container: Container) -> TradeCheckService:
+def build_trade_check_service(
+    container: Container, *, redaction: Any = None, review_router: Any = None
+) -> TradeCheckService:
     """Assemble a :class:`TradeCheckService` from an explicit Container.
 
     The ``get_*`` factory above uses the cached, process-wide Container (right for the
@@ -58,11 +88,11 @@ def build_trade_check_service(container: Container) -> TradeCheckService:
         rules=container.rules,
         llm=container.llm,
         guardrail=container.guardrail,
-        redaction=container.redaction,
+        redaction=redaction or container.redaction,
         tracer=container.tracer,
         audit=container.audit,
         acl=container.acl,
-        review_router=container.review_router,
+        review_router=review_router or container.review_router,
         detector=DiscrepancyDetector(
             amount_tolerance_pct=container.settings.check.amount_tolerance_pct,
             description_min_overlap=container.settings.check.description_min_overlap,

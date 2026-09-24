@@ -54,9 +54,11 @@ make run-api        # FastAPI on :8094
 ```
 
 Both live profiles route R8 reviews to `human-review-console`: set `HUMAN_REVIEW_URL` (plus the shared
-`S2S_TOKEN` / `S2S_SIGNING_KEY` pair the platform delegates use), or every escalation skips
-the console (the routing is best-effort; the WORM audit record stays the escalation of
-record). For the `platform` profile, also set `GUARDRAIL_GATEWAY_URL`, `KNOWLEDGE_BASE_URL`,
+`S2S_TOKEN` / `S2S_SIGNING_KEY` pair the platform delegates use). With review routing on (the
+default) the process refuses to boot without it; to run without the console, say so with
+`TRADE_FINANCE_REVIEW_ROUTING=off`. A hand-off that fails at request time does not fail the
+report (the WORM audit record stays the escalation of record), but the report carries
+`review_routing: "failed"` and the service logs a warning. For the `platform` profile, also set `GUARDRAIL_GATEWAY_URL`, `KNOWLEDGE_BASE_URL`,
 `QUALITY_GATE_URL`, `OBSERVABILITY_URL` to the `agent-guardrail-gateway`, `enterprise-knowledge-base`, `model-quality-gate`, `agent-observability` service endpoints, and
 `AGENT_REGISTRY_URL` only if the deployment publishes the agent card to `agent-registry`.
 
@@ -109,3 +111,20 @@ citation accuracy, PII safety) clears its threshold. CI enforces it
 To stop serving checks immediately: scale the Agent Runtime / Cloud Run revision to zero, or
 switch `TRADE_FINANCE_PROFILE` to a profile whose adapters refuse traffic. The deterministic
 detector and audit trail mean any in-flight check has already been recorded.
+
+**Runtime controls.** `TRADE_FINANCE_GUARDRAIL`, `TRADE_FINANCE_PII_REDACTION` and
+`TRADE_FINANCE_REVIEW_ROUTING` each switch one cheap control. Each is read in three states:
+unset is on, `true`/`false` (or `on`/`off`) wins, and an emptied or unrecognised value refuses
+at boot. A process with any of them off logs one warning at startup naming each.
+
+- **Pause escalations:** set `TRADE_FINANCE_REVIEW_ROUTING=off`. The ESCALATED audit rows are
+  still written, and every check reports `review_routing: "off"` (API, agent tools, MCP tools,
+  CLI), so the officer is told the report is not queued. Unsetting `HUMAN_REVIEW_URL` does not
+  pause anything: under `gcp` or `platform` with routing on, the process refuses to boot.
+- **Redaction disclosure:** a check or extract whose presented LC or documents redaction
+  changed carries `input_redacted: true`, and the console says so.
+- **Redaction tuning:** DLP masks only `LIKELY` findings, replaces each with its info-type name
+  (`[PERSON_NAME]`) rather than `#` characters, and excludes trade-finance vocabulary (UCP600,
+  ISBP, Incoterms, bank roles, carriers) from `PERSON_NAME`, both inline and in the
+  `infra/terraform/dlp.tf` templates. The local redactor leaves an amount after a currency
+  marker (`SGD 90000000`) and an HS code (`HS code 8471300000`) alone.

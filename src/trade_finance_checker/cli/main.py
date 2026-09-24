@@ -140,6 +140,22 @@ def _echo_citations(citations: tuple[Citation, ...], indent: str = "    ") -> No
         typer.echo(f"{indent}- {_fmt_citation(c)}")
 
 
+#: The human-review hand-off outcome in plain words, as the console states it.
+_REVIEW_ROUTING_TEXT = {
+    "routed": "Sent to the review console.",
+    "failed": "Could not reach the review console; this report is not queued for review.",
+    "off": "Review routing is off in this deployment; this report is not queued for review.",
+    "not_required": "Human review was not required, so nothing was routed.",
+}
+
+
+def _echo_review_routing(outcome: str) -> None:
+    typer.secho(
+        f"  Review routing: {outcome} ({_REVIEW_ROUTING_TEXT[outcome]})",
+        fg=typer.colors.GREEN if outcome == "routed" else typer.colors.YELLOW,
+    )
+
+
 def _print_report(report: DiscrepancyReport) -> None:
     color = typer.colors.GREEN if report.verdict.value == "compliant" else typer.colors.RED
     typer.secho(
@@ -234,12 +250,21 @@ def check(
     lc = _to_lc(data.get("lc", {}))
     documents = _to_documents(data.get("documents", []) or [])
 
+    from ..adapters.controls import RecordingReviewRouter
+
+    routing: RecordingReviewRouter | None = None
+
     def _do() -> DiscrepancyReport:
-        svc = _deps().build_trade_check_service(_container())
+        nonlocal routing
+        container = _container()
+        routing = RecordingReviewRouter(container.review_router)
+        svc = _deps().build_trade_check_service(container, review_router=routing)
         return svc.check(lc, documents, principal=_CLI_PRINCIPAL)
 
     report = _run("check", _do)
     _print_report(report)
+    if routing is not None:
+        _echo_review_routing(routing.outcome.value)
 
 
 @app.command()

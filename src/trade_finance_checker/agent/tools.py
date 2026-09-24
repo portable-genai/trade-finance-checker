@@ -92,6 +92,23 @@ def _to_documents(documents: list[dict[str, Any]]) -> list[Any]:
     return out
 
 
+def _check_and_record(
+    lc: dict[str, Any],
+    documents: list[dict[str, Any]],
+    actor: str,
+    settings: Settings | None,
+) -> tuple[Any, str]:
+    """Run the check through a recording router; return the report and the hand-off outcome."""
+    from ..adapters.controls import RecordingReviewRouter
+    from ..api.deps import build_trade_check_service
+
+    container = _container(settings)
+    routing = RecordingReviewRouter(container.review_router)
+    service = build_trade_check_service(container, review_router=routing)
+    report = service.check(_to_lc(lc), _to_documents(documents), principal=_principal(actor))
+    return report, routing.outcome.value
+
+
 # --------------------------------------------------------------------------- #
 # The tool callables (plain functions: importable & testable without ADK).
 # --------------------------------------------------------------------------- #
@@ -113,15 +130,17 @@ def check_presentation(
       actor: authenticated user / service identity the request is made for.
 
     Returns:
-      A JSON-safe ``DiscrepancyReport`` dict.
+      A JSON-safe ``DiscrepancyReport`` dict, plus ``review_routing``: what happened to the
+      human-review hand-off (``routed``, ``failed``, ``off`` or ``not_required``).
     """
     from .. import api  # noqa: F401 - keep package import-safe ordering
-    from ..api.deps import build_trade_check_service
     from ..domain.serialization import to_jsonable
 
-    service = build_trade_check_service(_container(settings))
-    report = service.check(_to_lc(lc), _to_documents(documents), principal=_principal(actor))
-    return to_jsonable(report)
+    report, routing = _check_and_record(lc, documents, actor, settings)
+    payload: dict[str, Any] = to_jsonable(report)
+    # What happened to the human-review hand-off: routed, failed, off or not_required.
+    payload["review_routing"] = routing
+    return payload
 
 
 def detect_discrepancies(
@@ -141,16 +160,15 @@ def detect_discrepancies(
       actor: authenticated user / service identity the request is made for.
 
     Returns:
-      A JSON-safe dict with the verdict and the list of discrepancies.
+      A JSON-safe dict with the verdict, the list of discrepancies and ``review_routing``.
     """
-    from ..api.deps import build_trade_check_service
     from ..domain.serialization import to_jsonable
 
-    service = build_trade_check_service(_container(settings))
-    report = service.check(_to_lc(lc), _to_documents(documents), principal=_principal(actor))
+    report, routing = _check_and_record(lc, documents, actor, settings)
     return {
         "verdict": to_jsonable(report.verdict),
         "discrepancies": to_jsonable(report.discrepancies),
+        "review_routing": routing,
     }
 
 

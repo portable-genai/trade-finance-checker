@@ -13,6 +13,8 @@ domain models, the ports, and the orchestration service : never on a concrete ad
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from ..domain import models as m
@@ -174,6 +176,10 @@ class PresentationSummaryModel(BaseModel):
         )
 
 
+#: The four outcomes of a human-review hand-off, as the API reports them.
+ReviewRoutingValue = Literal["routed", "failed", "off", "not_required"]
+
+
 class DiscrepancyReportResponse(BaseModel):
     """The full check result for one presentation (mirror of DiscrepancyReport)."""
 
@@ -188,6 +194,11 @@ class DiscrepancyReportResponse(BaseModel):
     discrepancy_count: int = 0
     material_count: int = 0
     generated_at: str = ""
+
+    #: Redaction changed the presented LC or documents before the model saw them.
+    input_redacted: bool = False
+    #: What happened to the human-review hand-off: routed, failed, off or not_required.
+    review_routing: ReviewRoutingValue = "not_required"
 
     @classmethod
     def from_domain(cls, report: m.DiscrepancyReport) -> DiscrepancyReportResponse:
@@ -214,6 +225,9 @@ class DocumentExtractResponse(BaseModel):
     pages: int = 1
     document_id: str = ""
     raw_text: str = ""
+
+    #: Redaction changed the presented document before it was returned or audited.
+    input_redacted: bool = False
 
     @classmethod
     def from_domain(cls, extract: m.DocumentExtract) -> DocumentExtractResponse:
