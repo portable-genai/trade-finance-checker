@@ -209,14 +209,16 @@ def test_long_presentation_figures_are_masked_and_labelled() -> None:
     assert {f.info_type for f in out.findings} == {"AU_TFN"}
 
 
-def test_presentation_amounts_survive_but_an_eight_digit_integer_part_does_not() -> None:
-    """The amounts a presentation actually carries stay intact, with one known exception.
+def test_presentation_amounts_survive_including_an_eight_digit_integer_part() -> None:
+    """The amounts a presentation actually carries stay intact, large ones included.
 
     Ordinary amounts are written with decimals and are shorter than the account shape, so no
-    row sees them. The exception is deliberate and pinned rather than discovered later: the
-    SG_PHONE row matches an 8-digit run starting 6/8/9, which is exactly the integer part of
-    a large JPY amount, so a JPY LC loses its figure from the audited prompt. Over-redaction
-    is the accepted direction here, and the fix is context words on the shared pack.
+    row sees them. The SG_PHONE row matches an 8-digit run starting 6/8/9, which is exactly the
+    integer part of a large JPY amount, and this used to be pinned as a known collision: a JPY
+    LC lost its figure from the audited prompt. The runtime-control contract's benign-input
+    check (2026-09-24) fixed it with context rather than a looser row: a digit-run match
+    directly after a currency marker is an amount. The same run with no currency before it is
+    still masked, which is the direction this boundary prefers.
     """
     r = _redactor("SG", "HK", "JP", "AU")
     figures = "Invoice USD 98000.00 against LC 100000.00; net leverage 2.5x, DSCR 1.40x."
@@ -224,8 +226,9 @@ def test_presentation_amounts_survive_but_an_eight_digit_integer_part_does_not()
     assert unchanged.text == figures
     assert not unchanged.findings
 
-    jpy = r.redact("LC amount JPY 85000000.00 payable at sight.")
-    assert "[SG_PHONE]" in jpy.text  # the known collision, not a silent one
+    jpy = "LC amount JPY 85000000.00 payable at sight."
+    assert r.redact(jpy).text == jpy
+    assert "[SG_PHONE]" in r.redact("call 85000000 at sight.").text
 
 
 def test_iso_dates_are_never_masked() -> None:

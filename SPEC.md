@@ -206,8 +206,10 @@ All JSON field names mirror the domain dataclasses; enums are strings.
 **`human-review-console`** (env `HUMAN_REVIEW_URL` : required, no default)
 * `POST /v1/service/reviews` `{Review}` : the escalated `DiscrepancyReport`, submitted through
   the shared `review-kit` client (S2S headers from `S2S_TOKEN` / `S2S_SIGNING_KEY`,
-  redact-before-wire) whenever `requires_human_review` is set (rule R8). Best-effort at the
-  call site: a console outage never fails an already-audited report.
+  redact-before-wire) whenever `requires_human_review` is set (rule R8). Required at boot
+  under `gcp`/`platform` while `TRADE_FINANCE_REVIEW_ROUTING` is on. Non-fatal at the call
+  site: a console outage never fails an already-audited report, and the report says so in
+  `review_routing` (`routed`, `failed`, `off`, `not_required`).
 
 ## 7. Coding standards
 

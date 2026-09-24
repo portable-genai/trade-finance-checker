@@ -2,7 +2,7 @@
 
 import type { DiscrepancyReport } from "../lib/types";
 import { DiscrepancyCard } from "./DiscrepancyCard";
-import { Panel, ReviewBanner, VerdictBadge } from "./ui";
+import { Panel, RedactionNotice, ReviewBanner, VerdictBadge } from "./ui";
 
 export function ReportView({ report }: { report: DiscrepancyReport }) {
   return (
@@ -19,9 +19,14 @@ export function ReportView({ report }: { report: DiscrepancyReport }) {
           </div>
           <VerdictBadge verdict={report.verdict} />
         </div>
+        {report.input_redacted ? (
+          <div className="mt-3">
+            <RedactionNotice />
+          </div>
+        ) : null}
         {report.requires_human_review ? (
           <div className="mt-3">
-            <ReviewBanner />
+            <ReviewBanner routing={report.review_routing} />
           </div>
         ) : null}
         {report.narrative ? (

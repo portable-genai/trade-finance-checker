@@ -24,8 +24,10 @@ from typing import Any
 from hex_service_kit import mcpserve
 from hex_service_kit.identity import Principal
 
+from ..adapters.controls import RecordingReviewRouter
 from ..api import deps
 from ..domain.models import LetterOfCredit, PresentedDocument, TradeDocType
+from ..domain.serialization import to_jsonable
 
 #: The tools this module answers, as data, so a test can hold it against the catalog.
 HANDLER_NAMES: tuple[str, ...] = (
@@ -72,15 +74,28 @@ def build_handlers(actor: str) -> dict[str, mcpserve.Handler]:
     """Bind each declared tool to the check service that already performs it."""
     principal = Principal(subject=actor, principals=(), tenant="", source="mcp")
 
-    def _check(arguments: dict[str, Any]) -> Any:
+    def _check(arguments: dict[str, Any]) -> tuple[Any, str]:
+        """Run the check through a recording router: the report and the hand-off outcome."""
         documents = [_document(d) for d in (arguments.get("documents") or ())]
-        return deps.get_trade_check_service().check(_lc(arguments.get("lc")), documents, principal)
+        routing = RecordingReviewRouter(deps.get_container().review_router)
+        service = deps.get_trade_check_service(review_router=routing)
+        report = service.check(_lc(arguments.get("lc")), documents, principal)
+        return report, routing.outcome.value
 
     def check_presentation(**arguments: Any) -> Any:
-        return _check(arguments)
+        report, routing = _check(arguments)
+        payload: dict[str, Any] = to_jsonable(report)
+        # What happened to the human-review hand-off: routed, failed, off or not_required.
+        payload["review_routing"] = routing
+        return payload
 
     def detect_discrepancies(**arguments: Any) -> Any:
-        return _check(arguments).discrepancies
+        report, routing = _check(arguments)
+        return {
+            "verdict": to_jsonable(report.verdict),
+            "discrepancies": to_jsonable(report.discrepancies),
+            "review_routing": routing,
+        }
 
     def extract_document(**arguments: Any) -> Any:
         return deps.get_trade_check_service().extract(

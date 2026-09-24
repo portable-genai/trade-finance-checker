@@ -54,6 +54,9 @@ export interface PresentationSummary {
   terms: Record<string, string>;
 }
 
+/** What happened to the human-review hand-off for one response. */
+export type ReviewRouting = "routed" | "failed" | "off" | "not_required";
+
 export interface DiscrepancyReport {
   lc_number: string;
   documents_checked: string[];
@@ -66,6 +69,10 @@ export interface DiscrepancyReport {
   discrepancy_count: number;
   material_count: number;
   generated_at: string;
+  /** Redaction changed the presented LC or documents before the model saw them. */
+  input_redacted?: boolean;
+  /** What happened to the hand-off to the review console. */
+  review_routing?: ReviewRouting;
 }
 
 export interface LetterOfCreditInput {

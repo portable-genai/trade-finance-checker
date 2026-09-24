@@ -38,6 +38,7 @@ from ..domain.services import TradeCheckService
 from ..envread import boolean_setting, setting_or_default
 from ..ports.identity import VERIFIED
 from . import deps
+from .disclosure import disclose
 from .schemas import (
     AgentCardModel,
     CheckRequest,
@@ -369,6 +370,8 @@ def check(
     request: CheckRequest,
     principal: CurrentPrincipal,
     service: Annotated[TradeCheckService, Depends(deps.get_trade_check_service)],
+    redaction: deps.RequestRedaction,
+    routing: deps.RequestReviewRouter,
 ) -> DiscrepancyReportResponse:
     """Examine a presentation against the LC and UCP600; return a DiscrepancyReport.
 
@@ -395,7 +398,9 @@ def check(
         ) from exc
     except GuardrailBlockedError:
         report = service.check(lc, documents, principal=principal)
-    return DiscrepancyReportResponse.from_domain(report)
+    return disclose(
+        DiscrepancyReportResponse.from_domain(report), redaction=redaction, routing=routing
+    )
 
 
 @app.post("/v1/extract", response_model=DocumentExtractResponse, tags=["artifacts"])
@@ -403,10 +408,11 @@ def extract(
     request: ExtractRequest,
     principal: CurrentPrincipal,
     service: Annotated[TradeCheckService, Depends(deps.get_trade_check_service)],
+    redaction: deps.RequestRedaction,
 ) -> DocumentExtractResponse:
     """Parse a single presented document into a structured DocumentExtract."""
     extract = service.extract(request.document.to_domain(), principal=principal)
-    return DocumentExtractResponse.from_domain(extract)
+    return disclose(DocumentExtractResponse.from_domain(extract), redaction=redaction)
 
 
 # --------------------------------------------------------------------------- #

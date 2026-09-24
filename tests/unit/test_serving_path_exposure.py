@@ -104,6 +104,12 @@ def _app_under(monkeypatch: pytest.MonkeyPatch, **env: str) -> Any:
 
 
 @pytest.fixture(autouse=True)
+def _name_a_review_console(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A managed process with review routing on names its console, or it refuses to boot."""
+    monkeypatch.setenv("HUMAN_REVIEW_URL", "https://review.example.test")
+
+
+@pytest.fixture(autouse=True)
 def _restore_the_shared_app_module() -> Any:
     """Reload the API module under the suite's own environment after every cell.
 
