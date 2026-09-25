@@ -1,154 +1,107 @@
-"""Live LLM adapter (LLMPort) — a local Gemma model over an OpenAI-compatible server.
+"""Live LLM adapter (LLMPort): the fleet's shared local open-weight model.
 
-The ``live`` profile's generator. The discrepancy explanations and report
-prose are produced by a model running on the operator's own machine; the presentation
-data in those prompts never leaves it. Every discrepancy VERDICT stays with the
-deterministic detector: this model only narrates.
+The ``live`` profile's generator. The discrepancy explanations and report prose are produced
+by a model running on the operator's own machine, reached through the ONE client every laptop
+``live`` lane uses, :class:`hex_service_kit.localmodel.LocalModelClient`. Its endpoint, model
+and timeout are the fleet-wide ``LOCAL_MODEL_URL``, ``LOCAL_MODEL`` and
+``LOCAL_MODEL_TIMEOUT`` (three-state, read by the kit), so this repository carries no model
+server settings of its own. Every discrepancy VERDICT stays with the deterministic detector:
+this model only narrates.
 
-The services request structured output by handing the adapter a JSON schema. Local
-servers vary in whether they support constrained decoding, and several reject the
-``response_format`` field outright, so the schema is stated in the prompt and the answer
-is validated here: an unparseable first answer earns one stricter retry before the
-adapter gives up and returns the raw text (the domain's tolerant parser then degrades
-rather than crashing the report).
+Structured output: the kit states the request's JSON schema in the prompt, strips a fence,
+validates the answer against the schema and feeds any problem back for a bounded number of
+retries. The validated value is re-serialised as the response text, so the domain's parser
+reads clean JSON.
+
+Failures propagate as the kit raises them (:class:`LocalModelUnavailable`,
+:class:`LocalModelOutputError`), exactly as the Gemini adapter lets its SDK errors propagate:
+the service treats a failed narrative as presentation, never fatal, and falls back to the
+deterministic one in both profiles.
 
 Grounding discipline is unchanged from the managed adapter: the model may cite only the
-``[source_id p.N]`` headers present in the passage block it was given, and the services
-map those ids back to real retrieved passages, so a hallucinated id cites nothing
-rather than inventing provenance.
+``[source_id p.N]`` headers present in the passage block it was given, and the services map
+those ids back to real retrieved passages, so a hallucinated id cites nothing rather than
+inventing provenance.
 """
 
 from __future__ import annotations
 
 import json
-import logging
 from typing import Any
 
+from hex_service_kit.localmodel import LocalModelClient, LocalModelSettings
+
 from ...config import Settings
-from ...domain._grounded import _extract_json_object
 from ...domain.models import LlmRequest, LlmResponse, TokenUsage
-from ._client import LocalModelError, OpenAiCompatClient
-
-_LOG = logging.getLogger(__name__)
-
-_JSON_RULES = (
-    "Answer with a single JSON object and nothing else: no prose, no explanation, and "
-    "no markdown code fence. The object must match this JSON schema exactly, including "
-    "every required property:\n{schema}"
-)
-
-_RETRY_NUDGE = (
-    "Your previous answer was not valid JSON. Reply again with ONLY the JSON object "
-    "matching the schema. Start your answer with { and end it with }."
-)
 
 
-class GemmaLocalLLMAdapter:
-    """Generate with a local Gemma (or any OpenAI-compatible) model server."""
+class LocalModelLLMAdapter:
+    """Generate with the shared local model through the kit client."""
 
-    def __init__(self, settings: Settings) -> None:
+    def __init__(self, settings: Settings, *, client: LocalModelClient | None = None) -> None:
         self._settings = settings
-        live = settings.live
-        self._client = OpenAiCompatClient(live.llm_url, live.timeout_seconds)
-        self._model = live.llm_model
-        self._max_tokens = live.max_output_tokens
+        self._client = client or LocalModelClient(LocalModelSettings.from_env())
 
     # ------------------------------------------------------------------ #
     # LLMPort
     # ------------------------------------------------------------------ #
     def generate(self, request: LlmRequest) -> LlmResponse:
+        """Generate a completion for ``request``.
+
+        ``request.model`` names a managed model id and is not honoured here: the laptop
+        runs one model server, and the response names the model that actually answered.
+        """
         messages = self._build_messages(request)
-        model = request.model or self._model
-        content, usage, model_used = self._client.chat(
-            messages,
-            model=model,
-            temperature=request.temperature,
-            max_tokens=min(request.max_output_tokens, self._max_tokens),
-        )
-        text = content.strip()
-
         if request.response_schema is not None:
-            cleaned = _clean_json(text)
-            if cleaned is None:
-                _LOG.warning("local model returned unparseable JSON; retrying once")
-                messages = [
-                    *messages,
-                    {"role": "assistant", "content": text[:2000]},
-                    {"role": "user", "content": _RETRY_NUDGE},
-                ]
-                content, usage, model_used = self._client.chat(
-                    messages,
-                    model=model,
-                    temperature=0.0,
-                    max_tokens=min(request.max_output_tokens, self._max_tokens),
-                )
-                cleaned = _clean_json(content.strip())
-            if cleaned is not None:
-                text = cleaned
-
+            completion = self._client.complete_json(
+                messages,
+                schema=request.response_schema,
+                temperature=request.temperature,
+                max_tokens=request.max_output_tokens,
+            )
+            text = json.dumps(completion.data)
+        else:
+            completion = self._client.complete(
+                messages,
+                temperature=request.temperature,
+                max_tokens=request.max_output_tokens,
+            )
+            text = completion.text.strip()
+        # LlmResponse.usage is a mandatory TokenUsage; the kit reports None when the server
+        # counted nothing (MLX), which this type can only carry as its zero default.
         return LlmResponse(
             text=text,
-            usage=TokenUsage(
-                input_tokens=usage.get("input_tokens", 0),
-                output_tokens=usage.get("output_tokens", 0),
-            ),
-            model=model_used,
+            usage=completion.usage if completion.usage is not None else TokenUsage(),
+            model=completion.model,
         )
 
     def classify(self, text: str, labels: list[str]) -> str:
-        """Single-label triage. Falls back to the first label if the server is down."""
+        """Single-label triage at temperature 0, coerced onto ``labels``."""
         if not labels:
             return ""
         prompt = (
-            "Classify the text below into exactly one of these labels: "
-            f"{', '.join(labels)}.\nAnswer with the label only.\n\nText:\n{text[:4000]}"
+            "Classify the text into exactly one of these labels: "
+            f"{', '.join(labels)}.\n"
+            "Reply with the single label only, no punctuation or explanation.\n\n"
+            f"Text:\n{text}"
         )
-        try:
-            content, _, _ = self._client.chat(
-                [{"role": "user", "content": prompt}],
-                model=self._model,
-                temperature=0.0,
-                max_tokens=16,
-            )
-        except LocalModelError:
-            # Triage only routes; a server blip must not fail a check.
-            return labels[0]
-        return _match_label(content, labels)
+        completion = self._client.complete(
+            [{"role": "user", "content": prompt}], temperature=0.0, max_tokens=16
+        )
+        return _match_label(completion.text, labels)
 
     # ------------------------------------------------------------------ #
     # Prompt assembly
     # ------------------------------------------------------------------ #
-    def _build_messages(self, request: LlmRequest) -> list[dict[str, Any]]:
+    @staticmethod
+    def _build_messages(request: LlmRequest) -> list[dict[str, Any]]:
         messages: list[dict[str, Any]] = []
-        system = request.system_instruction or ""
-        if request.response_schema is not None:
-            rules = _JSON_RULES.format(schema=json.dumps(request.response_schema))
-            system = f"{system}\n\n{rules}" if system else rules
-        if system:
-            messages.append({"role": "system", "content": system})
+        if request.system_instruction:
+            messages.append({"role": "system", "content": request.system_instruction})
         for message in request.messages:
             role = "assistant" if message.role == "model" else message.role
             messages.append({"role": role, "content": message.content})
         return messages
-
-
-# --------------------------------------------------------------------------- #
-# Helpers
-# --------------------------------------------------------------------------- #
-def _clean_json(text: str) -> str | None:
-    """Return ``text`` as a compact JSON object string, or None if there is none.
-
-    Delegates to the domain's tolerant extractor so "where is the JSON in this answer"
-    is decided in one place for every model this repo talks to, then re-serialises so
-    the response carries clean JSON to the caller.
-    """
-    snippet = _extract_json_object(text)
-    if snippet is None:
-        return None
-    try:
-        return json.dumps(json.loads(snippet))
-    except (json.JSONDecodeError, ValueError):
-        return None
 
 
 def _match_label(content: str, labels: list[str]) -> str:

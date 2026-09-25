@@ -1,9 +1,11 @@
 # Trade-Finance Document Checker (B4) : runtime configuration.
 #
-# Three deployment profiles, selected by TRADE_FINANCE_PROFILE (or profile: below):
+# The deployment profiles, selected by TRADE_FINANCE_PROFILE (or profile: below):
 #   local  : a WORKING offline laptop stack (SQLite FTS5 over UCP600 + deterministic LLM,
 #            SDK-free, no API key, no emulator required). The dev / test default, used
 #            when TRADE_FINANCE_PROFILE is unset.
+#   live   : the local stack above, but the report prose comes from the fleet's shared local
+#            open-weight model (hex_service_kit.localmodel; LOCAL_MODEL_URL / LOCAL_MODEL).
 #   gcp    : Google Cloud managed services (lazy SDK imports). Production sets
 #            TRADE_FINANCE_PROFILE=gcp explicitly (see Dockerfile).
 #   onprem : fail-fast Google Distributed Cloud migration placeholders.
@@ -97,16 +99,6 @@ local:
   rules_db_path: ${TRADE_FINANCE_LOCAL_RULES_DB:-}  # SQLite FTS5 UCP600 rule index
   audit_path: ${TRADE_FINANCE_LOCAL_AUDIT:-}        # append-only local audit store
 
-# The `live` profile's local model server: real inference on the operator's own machine
-# (MLX / Ollama / vLLM / llama.cpp, any OpenAI-compatible /chat/completions endpoint).
-# Under live the presentation data is whatever the audience submits; the deterministic
-# detector still decides every discrepancy and this model only narrates the report.
-live:
-  llm_url: ${TRADE_FINANCE_LIVE_LLM_URL:-http://127.0.0.1:8001/chat/completions}
-  llm_model: ${TRADE_FINANCE_LIVE_LLM_MODEL:-mlx-community/gemma-4-26b-a4b-it-8bit}
-  timeout_seconds: ${TRADE_FINANCE_LIVE_TIMEOUT:-240}
-  max_output_tokens: ${TRADE_FINANCE_LIVE_MAX_TOKENS:-2048}
-
 # ----------------------------------------------------------------------------- #
 # Port -> adapter bindings. The container picks the entry for the active profile,
 # falling back to the 'gcp' entry. These dotted paths are the build contract:
@@ -129,7 +121,7 @@ adapters:
     gcp: trade_finance_checker.adapters.gcp.gemini_llm:GeminiLLMAdapter
     platform: trade_finance_checker.adapters.gcp.gemini_llm:GeminiLLMAdapter
     local: trade_finance_checker.adapters.local.llm:LocalDeterministicLLMAdapter
-    live: trade_finance_checker.adapters.live.llm:GemmaLocalLLMAdapter
+    live: trade_finance_checker.adapters.live.llm:LocalModelLLMAdapter
     onprem: trade_finance_checker.adapters.onprem.llm:OnPremLLMAdapter
   guardrail:
     gcp: trade_finance_checker.adapters.gcp.model_armor_guardrail:ModelArmorGuardrailAdapter
