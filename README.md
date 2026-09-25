@@ -192,6 +192,14 @@ imported lazily, only on that branch). Unset, they use SDK-free in-process store
 no emulator for Document AI, Gemini, Model Armor, DLP or FTS5 retrieval, so those stay on the
 SDK-free workaround unconditionally.
 
+**`live`: the same laptop stack with a real local model.** Every port binds the `local`
+adapter except `llm`, which calls the fleet's shared local open-weight model (Gemma 4 31B by
+default) through the kit client `hex_service_kit.localmodel`; point it elsewhere with
+`LOCAL_MODEL_URL` and `LOCAL_MODEL`. The deterministic detector still decides every
+discrepancy, and the model only narrates. Start the model server with
+`python -m mlx_vlm.server --model mlx-community/gemma-4-31b-it-8bit --port 8001`, then
+`TRADE_FINANCE_PROFILE=live make run-api`. Tests, CI and `make demo` stay on `local`.
+
 ### 4.2 `onprem` profile: fail-fast migration target
 
 The `onprem` profile binds every port to a placeholder adapter that raises

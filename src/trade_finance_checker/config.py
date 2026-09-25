@@ -21,6 +21,7 @@ from pathlib import Path
 from typing import Any
 
 import yaml
+from hex_service_kit.localmodel import LocalModelSettings
 
 from .domain import pii_patterns
 from .envread import (
@@ -365,31 +366,6 @@ class LocalSettings:
     audit_path: str = ""  # append-only audit store; "" => ~/.trade_finance_checker/audit.db
 
 
-@dataclass(frozen=True)
-class LiveSettings:
-    """The ``live`` profile's local model server (real inference on this machine).
-
-    Points at any OpenAI-compatible ``/chat/completions`` endpoint (MLX, Ollama, vLLM,
-    llama.cpp). Under live, presentation data is whatever the audience submits, the
-    deterministic detector still decides every discrepancy, and only the report prose
-    comes from this model.
-    """
-
-    llm_url: str = "http://127.0.0.1:8001/chat/completions"
-    llm_model: str = "mlx-community/gemma-4-26b-a4b-it-8bit"
-    timeout_seconds: float = 240.0
-    max_output_tokens: int = 2048
-
-
-def _live_settings(raw: dict[str, Any]) -> LiveSettings:
-    """Build LiveSettings with numeric coercion (env interpolation yields strings)."""
-    if "timeout_seconds" in raw:
-        raw["timeout_seconds"] = float(raw["timeout_seconds"])
-    if "max_output_tokens" in raw:
-        raw["max_output_tokens"] = int(raw["max_output_tokens"])
-    return LiveSettings(**raw)
-
-
 #: Multi-regions Document AI may use as a STATED residency deviation from the deploy region.
 #: Each names one jurisdiction and carries an ML-processing commitment for it. `global` is
 #: deliberately absent: it names no jurisdiction at all.
@@ -414,7 +390,6 @@ class Settings:
     agent_engine: AgentEngineSettings = field(default_factory=AgentEngineSettings)
     check: CheckSettings = field(default_factory=CheckSettings)
     local: LocalSettings = field(default_factory=LocalSettings)
-    live: LiveSettings = field(default_factory=LiveSettings)
     # port_name -> { profile -> "module.path:ClassName" }
     adapters: dict[str, dict[str, str]] = field(default_factory=dict)
     # Was the profile chosen DELIBERATELY, or merely inherited from the fallback? ``load``
@@ -471,13 +446,12 @@ class Settings:
         if class_name == "GeminiLLMAdapter":
             models = self.models
             return models.hard_reasoning if models.use_hard_reasoning else models.reasoning
-        if class_name == "GemmaLocalLLMAdapter":
-            # The one tree that KEEPS its local model, because on-prem is its point (org
-            # decision, 2026-08-30, which converted the outbound-grounded five and left
-            # this one alone). The banner names the actual local build rather than the
-            # word "local": an operator who pointed the endpoint at a different model
-            # needs the page to say which one answered.
-            return self.live.llm_model
+        if class_name == "LocalModelLLMAdapter":
+            # The laptop ``live`` lane's shared local model. The banner names the model the
+            # kit client will call (``LOCAL_MODEL``, else the fleet default), not the word
+            # "local": an operator who pointed it at a different model needs the page to say
+            # which one answered.
+            return LocalModelSettings.from_env().model
         if class_name == "OnPremLLMAdapter":
             # The on-prem adapter is a fail-fast migration placeholder: it raises rather
             # than generating. Naming a model here would advertise one that never answers.
@@ -513,7 +487,6 @@ class Settings:
         agent_engine = AgentEngineSettings(**(raw.pop("agent_engine", {}) or {}))
         check = CheckSettings(**(raw.pop("check", {}) or {}))
         local = LocalSettings(**(raw.pop("local", {}) or {}))
-        live = _live_settings(raw.pop("live", {}) or {})
         # Three states, not two. The environment wins over the settings file (unchanged
         # precedence); a profile written into the file is still a deliberate choice; and only
         # when NEITHER names one is the ``local`` binding inherited rather than consented to.
@@ -543,7 +516,6 @@ class Settings:
             agent_engine=agent_engine,
             check=check,
             local=local,
-            live=live,
             adapters=raw.get("adapters", {}) or {},
             controls=ControlSwitches.from_env(),
         )

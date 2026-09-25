@@ -15,6 +15,7 @@ from __future__ import annotations
 import dataclasses
 
 import pytest
+from hex_service_kit.localmodel import DEFAULT_LOCAL_MODEL
 
 from trade_finance_checker.config import Settings
 
@@ -62,23 +63,22 @@ def test_the_model_answers_what_the_profile_actually_binds(
     assert dataclasses.replace(settings, profile=profile).generator_model == expected
 
 
-def test_the_one_tree_that_kept_its_local_model_names_the_build_that_answered(
-    settings: Settings,
+def test_live_names_the_shared_local_model_that_answers(
+    settings: Settings, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """This checker is the exception to the 2026-08-30 Gemini-only sweep, on purpose.
+    """Under ``live`` the banner names the local model build, not the word "local".
 
-    The five outbound-grounded systems dropped their local models because a use case that
-    needs internet research is only ever implemented for customers who permit leaving the
-    data centre. On-prem is THIS system's entire point, so it keeps its Gemma build and
-    the banner has to say so: the whole value of the banner here is that a viewer looking
-    at a checked presentation learns the answer came from a model on this machine.
-
-    It names the configured BUILD, not the word "local". An operator who pointed
-    TRADE_FINANCE_LIVE_LLM_URL at a different model needs the page to say which one
-    answered, and a banner reading "model local" would hide exactly that.
+    The laptop lane calls the fleet's one local model through the kit client, so the banner
+    reads the model that client will call: ``LOCAL_MODEL`` when set, the fleet default when
+    not. An operator who pointed ``LOCAL_MODEL`` at a different build needs the page to say
+    which one answered, and a banner reading "model local" would hide exactly that.
     """
     live = dataclasses.replace(settings, profile="live")
-
     assert live.runtime == "local"
-    assert live.generator_model == settings.live.llm_model
+
+    monkeypatch.delenv("LOCAL_MODEL", raising=False)
+    assert live.generator_model == DEFAULT_LOCAL_MODEL
     assert "gemma" in live.generator_model.lower()
+
+    monkeypatch.setenv("LOCAL_MODEL", "example-org/another-local-build")
+    assert live.generator_model == "example-org/another-local-build"

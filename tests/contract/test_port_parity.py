@@ -50,7 +50,7 @@ PORT_PROTOCOLS: dict[str, type] = {
 }
 
 # Profiles whose adapters must construct + satisfy the Protocols with no GCP SDK.
-# ``live`` is SDK-free too: a local model server over httpx; an unbound live port
+# ``live`` is SDK-free too: the kit's stdlib local-model client; an unbound live port
 # would silently fall back to a managed GCP adapter.
 SDK_FREE_PROFILES = ("onprem", "local", "live")
 
