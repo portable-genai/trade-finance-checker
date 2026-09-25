@@ -55,10 +55,14 @@ def _local_container() -> Container:
     )
 
 
-def _check(monkeypatch: pytest.MonkeyPatch, container: Container) -> Any:
+@pytest.fixture(autouse=True)
+def _named_local_profile(monkeypatch: pytest.MonkeyPatch) -> None:
     # The seeded personas refuse an inherited profile, and `make portability` runs this suite
-    # with none exported, so the profile is named here rather than borrowed from the shell.
+    # with none exported. Named before any container loads its settings, not after.
     monkeypatch.setenv("TRADE_FINANCE_PROFILE", "local")
+
+
+def _check(monkeypatch: pytest.MonkeyPatch, container: Container) -> Any:
     monkeypatch.setattr(deps, "get_container", lambda: container)
     presentation = json.loads(_PRESENTATION.read_text(encoding="utf-8"))
     response = TestClient(app, client=LOOPBACK_PEER).post("/v1/check", json=presentation)
