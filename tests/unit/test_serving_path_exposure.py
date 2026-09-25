@@ -105,8 +105,9 @@ def _app_under(monkeypatch: pytest.MonkeyPatch, **env: str) -> Any:
 
 @pytest.fixture(autouse=True)
 def _name_a_review_console(monkeypatch: pytest.MonkeyPatch) -> None:
-    """A managed process with review routing on names its console, or it refuses to boot."""
+    """A managed process with review routing on names its console and the edge audience."""
     monkeypatch.setenv("HUMAN_REVIEW_URL", "https://review.example.test")
+    monkeypatch.setenv("HUMAN_REVIEW_IAP_AUDIENCE", "123456789-abc.apps.googleusercontent.com")
 
 
 @pytest.fixture(autouse=True)
