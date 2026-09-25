@@ -107,8 +107,9 @@ export interface Persona {
 }
 
 export interface Health {
-  // Provenance the banner states on every page: where the runtime sits and which model
-  // answers. Both come from the service; nothing in the console infers either.
+  // What the model pill states before any answer: where the runtime sits (its title) and the
+  // model the bound generator calls. Both come from the service; nothing in the console infers
+  // either. Once a request is answered, the pill shows that response's X-Answered-By instead.
   runtime: string;
   generator_model: string;
   status: string;

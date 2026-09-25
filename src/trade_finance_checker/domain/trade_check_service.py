@@ -307,6 +307,9 @@ class TradeCheckService:
             user_content=user,
             model=None,  # adapter default => reasoning model gemini-3.5-flash
             response_schema=_NARRATIVE_SCHEMA,
+            # Free, not pinned: this is drafting. The verdict and the discrepancy set come
+            # from the deterministic detector, and nothing compares or scores this prose.
+            temperature=None,
         )
         try:
             response = self._llm.generate(request)

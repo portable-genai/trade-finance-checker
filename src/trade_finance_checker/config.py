@@ -85,9 +85,14 @@ def _validate_profile(profile: str) -> str:
 
 #: The profiles whose runtime is a managed cloud, for :attr:`Settings.runtime`. ``live`` is
 #: NOT one where it exists: its process, index and audit trail are on the operator's
-#: machine, and the banner states WHERE while the model half states WHOSE. ``onprem`` is not
+#: machine, and the model pill's title states WHERE while its text states WHOSE. ``onprem`` is not
 #: one either -- running on the adopter's own iron is its entire point.
 _MANAGED_PROFILES: frozenset[str] = frozenset({"gcp", "platform"})
+
+#: What the offline deterministic generator calls itself: :attr:`Settings.generator_model`
+#: under ``local``, and the model the ``local`` LLM adapter notes as having answered. One
+#: spelling, so the pill's configured value and its answered value cannot disagree.
+STUB_GENERATOR_MODEL = "deterministic-offline-stub"
 
 
 @dataclass(frozen=True)
@@ -166,8 +171,6 @@ class ModelSettings:
     location: str = "us"
     reasoning: str = "gemini-3.5-flash"
     triage: str = "gemini-3.5-flash"
-    hard_reasoning: str = "gemini-3.5-flash"  # Preview : feature-flagged off by default
-    use_hard_reasoning: bool = False
 
 
 @dataclass(frozen=True)
@@ -423,7 +426,7 @@ class Settings:
 
     @property
     def runtime(self) -> str:
-        """Where this process is running, as the UI banner states it: ``gcp`` or ``local``.
+        """Where this process is running, as the UI's model pill states it: ``gcp`` or ``local``.
 
         Derived from the profile, never sniffed from the environment. A console that read
         its runtime from ``window.location`` would be right until the deployment served
@@ -433,21 +436,26 @@ class Settings:
 
     @property
     def generator_model(self) -> str:
-        """Which model answers, for the UI banner (org decision, 2026-08-30).
+        """Which model the bound generator calls, as the UI's model pill first states it.
+
+        The pill shows this until an answer arrives, then the model that ANSWERED
+        (``X-Answered-By``, noted by the adapter itself). So this must be the model the
+        adapter calls: under ``gcp`` the setting its call reads (``request.model or
+        models.reasoning``), never a model a flag could swap in while the adapter calls
+        another.
 
         Read off the LLM binding the container will actually build, not from a second
         field someone has to remember to update. A repo that rebinds ``llm`` for a profile
-        changes what the banner says in the same edit, which is the only way the two stay
+        changes what the pill says in the same edit, which is the only way the two stay
         true to each other: a settings string would be a claim ABOUT the binding rather
         than the binding.
         """
         binding = self.adapters.get("llm", {}).get(self.profile, "")
         _, _, class_name = binding.partition(":")
         if class_name == "GeminiLLMAdapter":
-            models = self.models
-            return models.hard_reasoning if models.use_hard_reasoning else models.reasoning
+            return self.models.reasoning
         if class_name == "LocalModelLLMAdapter":
-            # The laptop ``live`` lane's shared local model. The banner names the model the
+            # The laptop ``live`` lane's shared local model. The pill names the model the
             # kit client will call (``LOCAL_MODEL``, else the fleet default), not the word
             # "local": an operator who pointed it at a different model needs the page to say
             # which one answered.
@@ -456,7 +464,7 @@ class Settings:
             # The on-prem adapter is a fail-fast migration placeholder: it raises rather
             # than generating. Naming a model here would advertise one that never answers.
             return "onprem-not-implemented"
-        return "deterministic-offline-stub"
+        return STUB_GENERATOR_MODEL
 
     @property
     def profile_choice(self) -> ProfileChoice:
