@@ -37,6 +37,7 @@ from trade_finance_checker.api.app import app
 from trade_finance_checker.cli.main import app as cli_app
 from trade_finance_checker.config import (
     GUARDRAIL_ENV,
+    HUMAN_REVIEW_IAP_AUDIENCE_ENV,
     HUMAN_REVIEW_URL_ENV,
     PII_REDACTION_ENV,
     REVIEW_ROUTING_ENV,
@@ -73,7 +74,7 @@ _PII_DOCS = [
 
 @pytest.fixture(autouse=True)
 def _clean_env(monkeypatch: pytest.MonkeyPatch) -> None:
-    for name in (*_SWITCHES, HUMAN_REVIEW_URL_ENV):
+    for name in (*_SWITCHES, HUMAN_REVIEW_URL_ENV, HUMAN_REVIEW_IAP_AUDIENCE_ENV):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setenv(_PROFILE_ENV, "local")
 
@@ -155,6 +156,7 @@ def test_routing_on_without_a_console_refuses_at_boot(
 def test_routing_on_under_gcp_with_a_console_loads(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv(_PROFILE_ENV, "gcp")
     monkeypatch.setenv(HUMAN_REVIEW_URL_ENV, "https://review.example.test")
+    monkeypatch.setenv(HUMAN_REVIEW_IAP_AUDIENCE_ENV, "123456789-abc.apps.googleusercontent.com")
     assert Settings.load().controls.review_routing is True
 
 
@@ -173,6 +175,7 @@ def test_the_model_armor_guardrail_on_without_a_template_refuses_at_boot(
 ) -> None:
     monkeypatch.setenv(_PROFILE_ENV, "gcp")
     monkeypatch.setenv(HUMAN_REVIEW_URL_ENV, "https://review.example.test")
+    monkeypatch.setenv(HUMAN_REVIEW_IAP_AUDIENCE_ENV, "123456789-abc.apps.googleusercontent.com")
     shipped = Path("config/settings.yaml").read_text(encoding="utf-8")
     emptied = shipped.replace("template_id: trade-finance-guardrail", 'template_id: ""')
     assert emptied != shipped

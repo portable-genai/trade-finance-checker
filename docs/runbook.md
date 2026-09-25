@@ -56,7 +56,15 @@ make run-api        # FastAPI on :8094
 Both live profiles route R8 reviews to `human-review-console`: set `HUMAN_REVIEW_URL` (plus the shared
 `S2S_TOKEN` / `S2S_SIGNING_KEY` pair the platform delegates use). With review routing on (the
 default) the process refuses to boot without it; to run without the console, say so with
-`TRADE_FINANCE_REVIEW_ROUTING=off`. A hand-off that fails at request time does not fail the
+`TRADE_FINANCE_REVIEW_ROUTING=off`. Under `gcp` the deployed console is an embedded app behind
+the portal's IAP edge: `HUMAN_REVIEW_URL` is `https://<edge-host>/apps/human-review-console/api`
+and `HUMAN_REVIEW_IAP_AUDIENCE` must name the deployment's IAP OAuth client id beside it. The
+router then mints a Google-signed ID token for that audience with the service's own identity on
+every submission, in place of the static `S2S_TOKEN`. Boot refuses `gcp` with routing on and
+either variable missing (naming both), and refuses an audience that is the
+`/projects/.../backendServices/...` path, which the edge would reject as a bearer audience. The
+console must list this service's account in its `REVIEW_IAP_SERVICE_CALLERS_JSON`, or it
+answers 403 and the report says `review_routing: "failed"`. A hand-off that fails at request time does not fail the
 report (the WORM audit record stays the escalation of record), but the report carries
 `review_routing: "failed"` and the service logs a warning. For the `platform` profile, also set `GUARDRAIL_GATEWAY_URL`, `KNOWLEDGE_BASE_URL`,
 `QUALITY_GATE_URL`, `OBSERVABILITY_URL` to the `agent-guardrail-gateway`, `enterprise-knowledge-base`, `model-quality-gate`, `agent-observability` service endpoints, and
@@ -119,8 +127,9 @@ at boot. A process with any of them off logs one warning at startup naming each.
 
 - **Pause escalations:** set `TRADE_FINANCE_REVIEW_ROUTING=off`. The ESCALATED audit rows are
   still written, and every check reports `review_routing: "off"` (API, agent tools, MCP tools,
-  CLI), so the officer is told the report is not queued. Unsetting `HUMAN_REVIEW_URL` does not
-  pause anything: under `gcp` or `platform` with routing on, the process refuses to boot.
+  CLI), so the officer is told the report is not queued. Unsetting `HUMAN_REVIEW_URL` (or,
+  under `gcp`, `HUMAN_REVIEW_IAP_AUDIENCE`) does not pause anything: under `gcp` or `platform`
+  with routing on, the process refuses to boot.
 - **Redaction disclosure:** a check or extract whose presented LC or documents redaction
   changed carries `input_redacted: true`, and the console says so.
 - **Redaction tuning:** DLP masks only `LIKELY` findings, replaces each with its info-type name

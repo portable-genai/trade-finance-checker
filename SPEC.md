@@ -207,7 +207,10 @@ All JSON field names mirror the domain dataclasses; enums are strings.
 * `POST /v1/service/reviews` `{Review}` : the escalated `DiscrepancyReport`, submitted through
   the shared `review-kit` client (S2S headers from `S2S_TOKEN` / `S2S_SIGNING_KEY`,
   redact-before-wire) whenever `requires_human_review` is set (rule R8). Required at boot
-  under `gcp`/`platform` while `TRADE_FINANCE_REVIEW_ROUTING` is on. Non-fatal at the call
+  under `gcp`/`platform` while `TRADE_FINANCE_REVIEW_ROUTING` is on. Under `gcp` the console
+  is reached through the portal's IAP edge, so `HUMAN_REVIEW_IAP_AUDIENCE` (the IAP OAuth
+  client id) is required beside it and the bearer is an ID token minted for it per submission
+  instead of `S2S_TOKEN`. Non-fatal at the call
   site: a console outage never fails an already-audited report, and the report says so in
   `review_routing` (`routed`, `failed`, `off`, `not_required`).
 
