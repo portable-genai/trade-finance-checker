@@ -29,7 +29,7 @@ from hex_service_kit import (
     read_env_setting,
     resolve_bind_host,
 )
-from hex_service_kit.web import add_loopback_exposure_guard
+from hex_service_kit.web import add_loopback_exposure_guard, install_answer_provenance
 
 from ..config import end_user_auth_kind
 from ..domain.entitlements import ObjectOwner
@@ -214,6 +214,14 @@ async def _security_headers(request: Request, call_next: Any) -> Any:
     if legacy is not None:
         response.headers["X-Frame-Options"] = legacy
     return response
+
+
+# Which model answered, and whether it searched: the LLM adapters note it as they call
+# (`hex_service_kit.provenance.note_model`; the kit's local-model client notes itself) and this
+# emits it as `X-Answered-By` / `X-Search-Used` on the same response, exposed to the console's
+# cross-origin reads. The console's model pill reads them, so what it names is what answered,
+# never what configuration says would. A request that noted nothing sends neither header.
+install_answer_provenance(app)
 
 
 # A request arrives with nothing authenticating the END USER unless BOTH of these hold, and

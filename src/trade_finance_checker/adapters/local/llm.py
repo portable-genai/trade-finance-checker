@@ -20,7 +20,9 @@ import json
 import re
 from typing import Any
 
-from ...config import Settings
+from hex_service_kit import provenance
+
+from ...config import STUB_GENERATOR_MODEL, Settings
 from ...domain.models import LlmRequest, LlmResponse, TokenUsage
 
 # Recover the UCP600 article references the prompt's findings block names so the drafted
@@ -52,6 +54,8 @@ class LocalDeterministicLLMAdapter:
     def generate(self, request: LlmRequest) -> LlmResponse:
         articles = self._articles_from_request(request)
         body = self._body_for_schema(request.response_schema, articles)
+        # The pill names the stub, never the Gemini id this response echoes: no model answered.
+        provenance.note_model(STUB_GENERATOR_MODEL)
         return LlmResponse(
             text=json.dumps(body),
             usage=TokenUsage(input_tokens=128, output_tokens=64, thinking_tokens=32),
@@ -61,6 +65,7 @@ class LocalDeterministicLLMAdapter:
 
     def classify(self, text: str, labels: list[str]) -> str:
         # Deterministic triage: first label (the service only uses this for routing).
+        provenance.note_model(STUB_GENERATOR_MODEL)
         return labels[0] if labels else ""
 
     # ------------------------------------------------------------------ #

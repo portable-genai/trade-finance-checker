@@ -11,11 +11,14 @@ demo data is fictional.
 | `app/layout.tsx` | Page chrome, and `export const dynamic = "force-dynamic"` (required by the CSP, see below) |
 | `app/page.tsx` | The console itself |
 | `components/` | Report, discrepancy card, citation chip, shared primitives |
+| `components/ModelPills.tsx` | The two pills at the top right of every page: the model that answered the last request (the configured `generator_model` from `/healthz`, dimmed, until one has), and `Search` when that answer used an online search tool |
+| `lib/answer-provenance.mjs` | The one `window.fetch` wrapper the pills read the service's `X-Answered-By` / `X-Search-Used` headers through, so no call site reports its own model |
 | `lib/api.ts` | Thin client for the backend; base URL from `NEXT_PUBLIC_API_BASE` |
 | `lib/csp.mjs` | **The one place the Content-Security-Policy is built.** Framing allowlist, nonce minting, and the build refusals |
 | `proxy.ts` | Mints a per-request nonce and sets the policy on the request AND response headers |
 | `next.config.mjs` | Static headers, base path, and the build/boot refusals from `lib/csp.mjs`. Emits NO CSP |
 | `tests/csp.test.mjs` | What a policy STRING can decide |
+| `tests/answer-provenance.test.mjs` | That a pill never names a model no response of this console's API named |
 | `scripts/assert-hydratable.mjs` | What only the served document can decide |
 
 ## The CSP, in one paragraph
