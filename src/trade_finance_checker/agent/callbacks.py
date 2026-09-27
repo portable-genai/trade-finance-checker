@@ -21,8 +21,8 @@ PII-in-spans
 ADK can attach message content to trace spans. That would leak PII into Cloud Trace, so
 :func:`configure_span_privacy` sets ``ADK_CAPTURE_MESSAGE_CONTENT_IN_SPANS=false``
 (idempotent; never overrides an operator who has already pinned it). Call it once at
-agent-build time. The Cloud Trace adapter additionally disables content capture at the
-exporter (SPEC §3: "content capture OFF").
+agent-build time. The gcp tracer exports only through the agent-observability collector, which
+deletes GenAI content attributes before Cloud Trace (SPEC §3: "content capture OFF").
 
 ADK imports are done lazily inside the factory / callbacks so this module imports without
 ADK installed (SPEC §4).
@@ -62,7 +62,7 @@ def configure_span_privacy() -> None:
     """Ensure message content is never captured into trace spans (PII safety).
 
     Idempotent and non-destructive: only sets the flag if the operator has not already
-    pinned it. Pairs with the Cloud Trace adapter's exporter-level content-capture-off
+    pinned it. Pairs with the gcp tracer's collector-side content redaction and content-capture-off
     setting (SPEC §3).
     """
     os.environ.setdefault(SPAN_CONTENT_ENV, "false")
