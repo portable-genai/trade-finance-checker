@@ -158,8 +158,8 @@ adapters:
     platform: trade_finance_checker.adapters.platform.remote_audit:RemoteAuditAdapter
     onprem: trade_finance_checker.adapters.onprem.audit:OnPremAuditAdapter
   tracer:
-    gcp: trade_finance_checker.adapters.gcp.cloud_trace_tracer:CloudTraceTracerAdapter
-    platform: trade_finance_checker.adapters.gcp.cloud_trace_tracer:CloudTraceTracerAdapter
+    gcp: trade_finance_checker.adapters.gcp.tracer:CloudTracerAdapter
+    platform: trade_finance_checker.adapters.gcp.tracer:CloudTracerAdapter
     local: trade_finance_checker.adapters.local.tracer:LocalNoopTracerAdapter
     live: trade_finance_checker.adapters.local.tracer:LocalNoopTracerAdapter
     onprem: trade_finance_checker.adapters.onprem.tracer:OnPremTracerAdapter
