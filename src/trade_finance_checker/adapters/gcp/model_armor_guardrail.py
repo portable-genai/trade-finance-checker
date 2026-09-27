@@ -8,8 +8,17 @@ inside Singapore for Transaction Banking data residency.
 
 The adapter parses ``sanitizationResult.filterResults`` : the prompt-injection / jailbreak,
 Sensitive Data Protection (SDP), malicious-URI and Responsible-AI (RAI) filters : into
-:class:`GuardrailFinding` records and treats the request as *blocked* when any filter
-reports ``MATCH_FOUND``.
+:class:`GuardrailFinding` records.
+
+FAIL CLOSED. The verdict is ALLOWED only when ``sanitizationResult.filterMatchState`` is
+``NO_MATCH_FOUND`` AND ``sanitizationResult.invocationResult`` is ``SUCCESS``. Everything
+else blocks: ``MATCH_FOUND``; ``FILTER_MATCH_STATE_UNSPECIFIED``; a missing or empty
+``sanitizationResult``; and ``NO_MATCH_FOUND`` from a screen whose ``invocationResult`` is
+``PARTIAL`` (some filters skipped or failed), ``FAILURE`` (all of them did), unspecified or
+absent. A skipped filter reports no match, so "no match" from a screen that did not run is
+refused rather than passed: padding a prompt past the prompt-injection filter's token limit
+must not get it through unscreened. The REST call carries a deadline, and an HTTP error or
+timeout propagates to the caller rather than becoming a verdict.
 
 All Google Cloud / auth SDK imports are lazy (inside ``__init__`` / methods) so the on-prem
 and test profiles import this module with no GCP SDK installed.
@@ -28,6 +37,10 @@ from ...domain.models import (
 )
 
 _MATCH_FOUND = "MATCH_FOUND"
+_NO_MATCH_FOUND = "NO_MATCH_FOUND"
+_SUCCESS = "SUCCESS"
+# The deadline on every sanitize call; a timeout raises, it never becomes an allow.
+_TIMEOUT_SECONDS = 30.0
 
 # RAI sub-type key (as returned by Model Armor) -> domain GuardrailCategory.
 _RAI_CATEGORY: dict[str, GuardrailCategory] = {
@@ -53,7 +66,7 @@ class ModelArmorGuardrailAdapter:
 
     # -- public API -------------------------------------------------------- #
     def screen(self, text: str, direction: Direction) -> GuardrailVerdict:
-        """Screen ``text`` and return a verdict; blocks on any filter match."""
+        """Screen ``text`` and return a verdict. Raises if Model Armor cannot answer."""
         verb = "sanitizeUserPrompt" if direction is Direction.INPUT else "sanitizeModelResponse"
         payload = self._build_payload(text, direction)
         url = (
@@ -78,7 +91,7 @@ class ModelArmorGuardrailAdapter:
             "Authorization": f"Bearer {token}",
             "Content-Type": "application/json",
         }
-        resp = client.post(url, json=payload, headers=headers, timeout=30.0)
+        resp = client.post(url, json=payload, headers=headers, timeout=_TIMEOUT_SECONDS)
         resp.raise_for_status()
         data: dict[str, Any] = resp.json()
         return data
@@ -107,11 +120,12 @@ class ModelArmorGuardrailAdapter:
         return token
 
     # -- response parsing -------------------------------------------------- #
-    def _parse(
-        self, response: dict[str, Any], direction: Direction, original_text: str
-    ) -> GuardrailVerdict:
-        result = response.get("sanitizationResult", {}) or {}
-        filter_results = result.get("filterResults", {}) or {}
+    def _parse(self, response: Any, direction: Direction, original_text: str) -> GuardrailVerdict:
+        """Map a sanitize response to a verdict: allowed ONLY on a complete, clean screen."""
+        raw = response.get("sanitizationResult") if isinstance(response, dict) else None
+        result: dict[str, Any] = raw if isinstance(raw, dict) else {}
+        raw_filters = result.get("filterResults")
+        filter_results: dict[str, Any] = raw_filters if isinstance(raw_filters, dict) else {}
 
         findings: list[GuardrailFinding] = []
         findings.extend(self._parse_pi_jailbreak(filter_results))
@@ -119,18 +133,35 @@ class ModelArmorGuardrailAdapter:
         findings.extend(self._parse_malicious_uris(filter_results))
         findings.extend(self._parse_rai(filter_results))
 
-        # Block when the top-level filter match state is MATCH_FOUND, falling back to
-        # "any finding present" when the aggregate field is absent.
         match_state = result.get("filterMatchState")
-        allowed = match_state != _MATCH_FOUND if match_state is not None else not findings
+        invocation = result.get("invocationResult")
+        if match_state == _NO_MATCH_FOUND and invocation == _SUCCESS:
+            return GuardrailVerdict(
+                allowed=True,
+                direction=direction,
+                findings=tuple(findings),
+                sanitized_text=self._extract_sanitized_text(filter_results, original_text),
+                reason="No blocking Model Armor filter matched.",
+            )
 
-        sanitized_text = self._extract_sanitized_text(filter_results, original_text)
-        reason = self._reason(allowed, findings)
+        if match_state == _MATCH_FOUND:
+            reason = self._blocked_reason(findings)
+            detail = "Model Armor reported a filter match."
+        elif match_state == _NO_MATCH_FOUND:
+            reason = "Blocked: Model Armor returned no complete filter decision."
+            detail = f"invocationResult={invocation or 'absent'}: not every filter ran."
+        else:
+            reason = "Blocked: Model Armor returned no usable verdict."
+            detail = f"filterMatchState={match_state or 'absent'}: no verdict to act on."
+        if not findings:
+            findings.append(
+                GuardrailFinding(category=GuardrailCategory.OTHER, confidence="high", detail=detail)
+            )
         return GuardrailVerdict(
-            allowed=allowed,
+            allowed=False,
             direction=direction,
             findings=tuple(findings),
-            sanitized_text=sanitized_text,
+            sanitized_text=None,
             reason=reason,
         )
 
@@ -238,8 +269,6 @@ class ModelArmorGuardrailAdapter:
         return original_text
 
     @staticmethod
-    def _reason(allowed: bool, findings: list[GuardrailFinding]) -> str:
-        if allowed:
-            return "No blocking Model Armor filter matched."
+    def _blocked_reason(findings: list[GuardrailFinding]) -> str:
         categories = ", ".join(sorted({f.category.value for f in findings}))
-        return f"Blocked by Model Armor: {categories}." if categories else "Blocked."
+        return f"Blocked by Model Armor: {categories}." if categories else "Blocked by Model Armor."
