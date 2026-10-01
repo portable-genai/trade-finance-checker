@@ -10,7 +10,11 @@ Owns the standard check pipeline and calls only ports. The pipeline, in order
       -> rules.retrieve_rules                  (governed UCP600 set from A2; R3)
       -> DiscrepancyDetector.detect            (DETERMINISTIC : the verdict source)
       -> TradeReviewPolicy.verdict             (COMPLIANT iff zero material discrepancies)
-      -> llm.generate                          (draft narrative; never overrides a finding)
+      -> redact(narrative prompt) -> guardrail.screen(INPUT)
+                                               [the prompt carries text read out of the
+                                                documents and the LC terms; blocked ->
+                                                audit BLOCKED + blocked report]
+      -> llm.generate on the screened prompt   (draft narrative; never overrides a finding)
       -> guardrail.screen(OUTPUT)
       -> review (always requires_human_review)
       -> audit.record(redacted prompt + response)
@@ -193,8 +197,17 @@ class TradeCheckService:
         requires_review = self._review.requires_review(discrepancies)  # always True
         escalates = self._review.escalates(discrepancies)
 
-        # 7) LLM draft of the narrative (never overrides a finding or the verdict).
-        narrative = self._draft_narrative(lc, documents, verdict, discrepancies)
+        # 7) LLM draft of the narrative (never overrides a finding or the verdict). The prompt
+        #    carries each finding's found value (text read out of the presented documents)
+        #    and expected value (the LC terms), none of which the entry screen saw, so it is
+        #    redacted and screened INPUT here and the model is sent exactly that text.
+        prompt = self._redaction.redact(
+            self._narrative_prompt(lc, documents, verdict, discrepancies)
+        ).text
+        prompt_verdict: GuardrailVerdict = self._guardrail.screen(prompt, Direction.INPUT)
+        if not prompt_verdict.allowed:
+            return self._blocked_report(lc, documents, actor, redacted_prompt, prompt_verdict)
+        narrative = self._draft_narrative(lc, verdict, discrepancies, prompt)
 
         # 8) Guardrail screen (OUTPUT) on the drafted narrative.
         out_verdict: GuardrailVerdict = self._guardrail.screen(narrative, Direction.OUTPUT)
@@ -285,26 +298,37 @@ class TradeCheckService:
         # Default top_k; the rules port may ignore it. Keeps the call defensive.
         return 8
 
-    def _draft_narrative(
-        self,
+    @staticmethod
+    def _narrative_prompt(
         lc: LetterOfCredit,
         documents: list[PresentedDocument],
         verdict: ComplianceVerdict,
         discrepancies: tuple[Discrepancy, ...],
     ) -> str:
-        """Second-stage LLM call: draft the examiner narrative (never authoritative)."""
-        findings_block = g.render_findings(discrepancies)
+        """The user prompt for the examiner narrative, before redaction and screening."""
         docs_block = ", ".join(sorted({d.doc_type.value for d in documents}))
-        system = REPORT_NARRATIVE_SYSTEM.format(citation_rules=_CITATION_RULES)
-        user = REPORT_NARRATIVE_USER.format(
+        return REPORT_NARRATIVE_USER.format(
             lc_number=lc.lc_number,
             verdict=verdict.value,
             documents=docs_block,
-            findings=findings_block,
+            findings=g.render_findings(discrepancies),
         )
+
+    def _draft_narrative(
+        self,
+        lc: LetterOfCredit,
+        verdict: ComplianceVerdict,
+        discrepancies: tuple[Discrepancy, ...],
+        prompt: str,
+    ) -> str:
+        """Second-stage LLM call: draft the examiner narrative (never authoritative).
+
+        ``prompt`` is the redacted user prompt the INPUT screen saw, sent unchanged.
+        """
+        system = REPORT_NARRATIVE_SYSTEM.format(citation_rules=_CITATION_RULES)
         request = g.build_llm_request(
             system_instruction=system,
-            user_content=user,
+            user_content=prompt,
             model=None,  # adapter default => reasoning model gemini-3.5-flash
             response_schema=_NARRATIVE_SCHEMA,
             # Free, not pinned: this is drafting. The verdict and the discrepancy set come
