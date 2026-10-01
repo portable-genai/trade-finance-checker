@@ -72,8 +72,19 @@ variable "labels" {
 
 variable "audit_retention_days" {
   type        = number
-  description = "WORM audit retention in days (~7 years). Locking is irreversible."
-  default     = 2557
+  description = <<-EOT
+    Audit-bucket retention in days. At least 2557 (~7 years) when worm_locked = true, because a
+    locked trail is the compliance record; any value from 1 while the bucket stays unlocked.
+    Default 30 days since 2026-10-02 (slice 7 of the posture rule: multi-year retention is a
+    reversible control, so it defaults off in code and terraform.tfvars.example states the
+    production form). 30 is the window Cloud Logging's _Default bucket keeps anyway.
+  EOT
+  default     = 30
+
+  validation {
+    condition     = var.worm_locked ? var.audit_retention_days >= 2557 : var.audit_retention_days >= 1
+    error_message = "A LOCKED stack must retain at least 2557 days (~7 years); an unlocked stack must still retain at least 1 day."
+  }
 }
 
 variable "worm_locked" {
