@@ -123,7 +123,9 @@ flowchart TD
     extract --> rules["rules.retrieve_rules (`enterprise-knowledge-base` UCP600)"]
     rules --> detect["DiscrepancyDetector.detect (DETERMINISTIC)"]
     detect --> verdict["TradeReviewPolicy.verdict + requires_human_review"]
-    verdict --> draft["llm.generate (draft narrative, never authoritative)"]
+    verdict --> screenPrompt["redact(narrative prompt) + guardrail.screen(INPUT)"]
+    screenPrompt -->|blocked| blockedAudit
+    screenPrompt -->|allowed| draft["llm.generate on the screened prompt (draft narrative, never authoritative)"]
     draft --> screenOut["guardrail.screen(OUTPUT)"]
     screenOut --> audit["audit.record(redacted)"]
 ```
